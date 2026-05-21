@@ -2,7 +2,7 @@ from sqlalchemy import select
 
 from app.core.database import SessionLocal
 from app.domain.value_objects.spot_status import SpotStatus
-from app.models import GuidanceCamera, ParkingRow, ParkingSpot, ParkingZone
+from app.models import ParkingRow, ParkingSpot, ParkingZone
 
 
 def get_or_create_zone() -> ParkingZone:
@@ -73,42 +73,15 @@ def seed_spots(row_id: int, total_spots: int = 10) -> None:
         db.commit()
 
 
-def get_or_create_camera(zone_id: int, spots_count: int = 10) -> GuidanceCamera:
-    with SessionLocal() as db:
-        camera = db.scalar(
-            select(GuidanceCamera).where(GuidanceCamera.code == "CAM-001")
-        )
-        if camera is not None:
-            camera.spots_count = spots_count
-            db.commit()
-            db.refresh(camera)
-            return camera
-
-        camera = GuidanceCamera(
-            title="Demo Camera 1",
-            code="CAM-001",
-            zone_id=zone_id,
-            vendor="UNV",
-            spots_count=spots_count,
-            is_active=True,
-        )
-        db.add(camera)
-        db.commit()
-        db.refresh(camera)
-        return camera
-
-
 def main() -> None:
     zone = get_or_create_zone()
     row = get_or_create_row(zone_id=zone.id)
     seed_spots(row_id=row.id, total_spots=10)
-    camera = get_or_create_camera(zone_id=zone.id, spots_count=10)
 
     print("Demo data is ready:")
     print(f"Zone: {zone.code} ({zone.title})")
     print(f"Row: {row.code} ({row.title})")
     print("Spots: A-001 .. A-010")
-    print(f"Camera: {camera.code} ({camera.title})")
 
 
 if __name__ == "__main__":
