@@ -1,0 +1,32 @@
+services:
+  pgs-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pgs-api
+    working_dir: /app
+    ports:
+      - "8010:8000"
+    volumes:
+      - ./app:/app/app
+      - ./migrations:/app/migrations
+      - ./alembic.ini:/app/alembic.ini
+    env_file:
+      - .env
+    depends_on:
+      - pgs-db
+
+  pgs-db:
+    image: postgres:16
+    container_name: pgs-db
+    environment:
+      POSTGRES_DB: pgs
+      POSTGRES_USER: pgs
+      POSTGRES_PASSWORD: pgs
+    ports:
+      - "5435:5432"
+    volumes:
+      - pgs_pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgs_pgdata: {}

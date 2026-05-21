@@ -1,0 +1,13 @@
+from fastapi import APIRouter
+
+from app.api.v1.camera_events import router as camera_events_router
+from app.api.v1.health import router as health_router
+from app.api.v1.spots import router as spots_router
+from app.api.v1.zones import router as zones_router
+
+
+router = APIRouter()
+router.include_router(health_router)
+router.include_router(camera_events_router)
+router.include_router(spots_router)
+router.include_router(zones_router)

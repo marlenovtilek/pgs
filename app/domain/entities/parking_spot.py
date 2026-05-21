@@ -1,0 +1,13 @@
+from dataclasses import dataclass
+
+from app.domain.value_objects.spot_status import SpotStatus
+
+
+@dataclass(slots=True)
+class ParkingSpotEntity:
+    spot_id: str
+    zone_code: str
+    row_code: str | None
+    status: SpotStatus
+    camera_code: str | None = None
+    plate_number: str | None = None
