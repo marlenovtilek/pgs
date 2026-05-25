@@ -15,6 +15,8 @@ services:
       - .env
     depends_on:
       - pgs-db
+    networks:
+      - smartparking_db_network
 
   pgs-db:
     image: postgres:16
@@ -27,6 +29,11 @@ services:
       - "5435:5432"
     volumes:
       - pgs_pgdata:/var/lib/postgresql/data
+
+
+networks: 
+  smartparking_db_network:  
+    external: true
 
 volumes:
   pgs_pgdata: {}

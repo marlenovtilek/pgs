@@ -1,11 +1,14 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func, case
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.domain.use_cases import calculate_zone_summary
+from app.models.guidance_display import GuidanceDisplay
 from app.models.parking_zone import ParkingZone
 from app.models.parking_row import ParkingRow
 from app.models.parking_spot import ParkingSpot
+from app.schemas.display import DisplayMessageListResponse, DisplayMessageResponse
 from app.schemas.zone_summary import ZoneSummaryItem, ZoneSummaryResponse
 from app.domain.value_objects.spot_status import SpotStatus
 
@@ -53,3 +56,60 @@ def get_zones_summary(db: Session = Depends(get_db)) -> ZoneSummaryResponse:
     
     return ZoneSummaryResponse(items=items)
 
+@router.get("/zones/{zone_code}/summary", response_model=ZoneSummaryItem)
+def get_zone_summary(zone_code: str, db: Session = Depends(get_db)) -> ZoneSummaryItem:
+    zone = db.scalar(
+        select(ParkingZone).where(ParkingZone.code == zone_code)
+    )
+    if zone is None:
+        raise HTTPException(status_code=404, detail="Zone not found.")
+        
+    rows = db.execute(
+        select(ParkingSpot.status)
+        .join(ParkingRow, ParkingSpot.row_id == ParkingRow.id)
+        .where(ParkingRow.zone_id == zone.id)
+    ).all()
+
+    statuses = [SpotStatus(row.status) for row in rows]
+
+    summary = calculate_zone_summary(statuses)
+    
+    return ZoneSummaryItem(
+        zone_code=zone.code,
+        zone_title=zone.title,
+        total_spots=summary["total"],
+        free_spots=summary["free"],
+        occupied_spots=summary["occupied"],
+    )
+
+@router.get("/zones/{zone_code}/messages", response_model=DisplayMessageListResponse)
+def get_zone_messages(zone_code: str, is_active: bool | None = None, db: Session = Depends(get_db),) -> DisplayMessageListResponse:
+    zone = db.scalar(
+        select(ParkingZone).where(ParkingZone.code == zone_code)
+    )
+    if zone is None:
+        raise HTTPException(status_code=404, detail="Zone not found.")
+
+    displays = db.scalars(
+        select(GuidanceDisplay).where(GuidanceDisplay.zone_id == zone.id)
+    ).all()
+
+    items = []
+
+    for display in displays:
+        statuses = [
+            SpotStatus(row.status)
+            for row in db.execute(
+                select(ParkingSpot.status)
+                .join(ParkingRow, ParkingSpot.row_id == ParkingRow.id)
+                .where(ParkingRow.zone_id == display.zone_id)
+            ).all()
+        ]
+        if is_active is not None and display.is_active != is_active:
+            continue
+        summary = calculate_zone_summary(statuses)
+        message = f"{zone.code} {display.arrow_direction} {summary['free']}"
+        items.append(DisplayMessageResponse(display_code=display.code, zone_code=zone.code, arrow_direction=display.arrow_direction, free_spots=summary["free"], message=message))
+
+
+    return DisplayMessageListResponse(items=items)
