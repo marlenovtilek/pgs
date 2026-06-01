@@ -6,6 +6,8 @@ class ZoneSummaryItem(BaseModel):
     total_spots: int
     free_spots: int
     occupied_spots: int
+    offline_spots: int
+    unknown_spots: int
 
 
 class ZoneSummaryResponse(BaseModel):

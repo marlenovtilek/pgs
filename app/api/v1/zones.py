@@ -34,6 +34,18 @@ def get_zones_summary(db: Session = Depends(get_db)) -> ZoneSummaryResponse:
                     else_=0,
                 )
             ).label("occupied_spots"),
+            func.sum(
+                case(
+                    (ParkingSpot.status == SpotStatus.OFFLINE.value, 1),
+                    else_=0,
+                )
+            ).label("offline_spots"),
+            func.sum(
+                case(
+                    (ParkingSpot.status == SpotStatus.UNKNOWN.value, 1),
+                    else_=0,
+                )
+            ).label("unknown_spots"),
         )
         .join(ParkingRow, ParkingRow.zone_id == ParkingZone.id)
         .join(ParkingSpot, ParkingSpot.row_id == ParkingRow.id)
@@ -50,6 +62,8 @@ def get_zones_summary(db: Session = Depends(get_db)) -> ZoneSummaryResponse:
             total_spots=row.total_spots,
             free_spots=row.free_spots or 0,
             occupied_spots=row.occupied_spots or 0,
+            offline_spots=row.offline_spots or 0,
+            unknown_spots=row.unknown_spots or 0,
         )
         for row in rows
     ]
@@ -80,6 +94,8 @@ def get_zone_summary(zone_code: str, db: Session = Depends(get_db)) -> ZoneSumma
         total_spots=summary["total"],
         free_spots=summary["free"],
         occupied_spots=summary["occupied"],
+        offline_spots=summary["offline"],
+        unknown_spots=summary["unknown"],
     )
 
 @router.get("/zones/{zone_code}/messages", response_model=DisplayMessageListResponse)
