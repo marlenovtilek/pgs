@@ -26,12 +26,14 @@ def _build_display_message(
     zone: ParkingZone,
     free_spots: int,
 ) -> DisplayMessageResponse:
+    arrow_direction = "FULL" if free_spots == 0 else display.arrow_direction
+
     return DisplayMessageResponse(
         display_code=display.code,
         zone_code=zone.code,
-        arrow_direction=display.arrow_direction,
+        arrow_direction=arrow_direction,
         free_spots=free_spots,
-        message=f"{zone.code} {display.arrow_direction} {free_spots}",
+        message=f"{zone.code} {arrow_direction} {free_spots}",
     )
 
 

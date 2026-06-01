@@ -1,27 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.adapters.led.mock import mock_led_adapter
 from app.core.database import get_db
-from app.models.spot_occupancy_event import SpotOccupancyEvent
 from app.schemas.spot_event import SpotEventRequest, SpotEventResponse
-from app.services.spots import AmbiguousSpotCodeError, resolve_spot
+from app.services.spot_events import AmbiguousSpotCodeError, process_spot_event
 
 
 router = APIRouter(tags=["spot-events"])
-
-
-def build_dedup_key(
-    *,
-    spot_code: str,
-    status_value: str,
-    detected_at_iso: str,
-    source: str,
-    event_id: str | None,
-) -> str:
-    if event_id:
-        return f"{source}:{event_id}"
-    return f"{spot_code}:{status_value}:{detected_at_iso}:{source}"
 
 
 @router.post(
@@ -34,11 +20,10 @@ def create_spot_event(
     db: Session = Depends(get_db),
 ) -> SpotEventResponse:
     try:
-        spot = resolve_spot(
+        result = process_spot_event(
             db,
-            spot_code=request.spot_code,
-            zone_code=request.zone_code,
-            row_code=request.row_code,
+            request,
+            display_port=mock_led_adapter,
         )
     except AmbiguousSpotCodeError as exc:
         raise HTTPException(
@@ -48,48 +33,10 @@ def create_spot_event(
                 "Provide zone_code or row_code."
             ),
         ) from exc
-
-    if spot is None:
+    except LookupError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Spot with code '{request.spot_code}' not found.",
-        )
+        ) from exc
 
-    dedup_key = build_dedup_key(
-        spot_code=spot.code,
-        status_value=request.status.value,
-        detected_at_iso=request.detected_at.isoformat(),
-        source=request.source,
-        event_id=request.event_id,
-    )
-
-    existing_event = db.scalar(
-        select(SpotOccupancyEvent).where(SpotOccupancyEvent.dedup_key == dedup_key)
-    )
-    if existing_event is not None:
-        return SpotEventResponse(
-            success=True,
-            dedup_key=existing_event.dedup_key,
-            spot_code=spot.code,
-            status=existing_event.status,
-        )
-
-    event = SpotOccupancyEvent(
-        spot_id=spot.id,
-        event_id=request.event_id,
-        dedup_key=dedup_key,
-        status=request.status.value,
-        source=request.source,
-        payload=request.payload,
-        detected_at=request.detected_at,
-    )
-    db.add(event)
-    spot.status = request.status.value
-    db.commit()
-
-    return SpotEventResponse(
-        success=True,
-        dedup_key=dedup_key,
-        spot_code=spot.code,
-        status=spot.status,
-    )
+    return result.response

@@ -34,3 +34,15 @@ def test_list_display_messages_filters_by_active_state(db_session):
     messages = list_display_messages(db_session, is_active=True)
 
     assert [message.display_code for message in messages] == ["ACTIVE"]
+
+
+def test_display_message_uses_full_direction_when_zone_has_no_free_spots(db_session):
+    zone, row = seed_zone_with_row(db_session)
+    seed_spot(db_session, row, code="A-001", status="OCCUPIED")
+    seed_display(db_session, zone, arrow_direction="RIGHT")
+    db_session.commit()
+
+    messages = list_display_messages(db_session)
+
+    assert messages[0].arrow_direction == "FULL"
+    assert messages[0].message == "A FULL 0"

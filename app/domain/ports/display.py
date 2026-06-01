@@ -1,14 +1,14 @@
 from typing import Protocol
 
-from app.domain.value_objects.arrow_direction import ArrowDirection
-
 
 class DisplayCommandPort(Protocol):
-    async def show_zone_summary(
+    def show_zone_summary(
         self,
         *,
+        display_code: str,
         zone_code: str,
         free_spots: int,
-        direction: ArrowDirection,
+        arrow_direction: str,
+        message: str,
     ) -> None:
         """Send a summary command to a LED display."""
