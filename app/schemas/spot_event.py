@@ -10,6 +10,8 @@ class SpotEventRequest(BaseModel):
     status: SpotStatus
     detected_at: datetime
     source: str = "UNV_SERVICE"
+    zone_code: str | None = None
+    row_code: str | None = None
     event_id: str | None = None
     payload: dict | None = None
 

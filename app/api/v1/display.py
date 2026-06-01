@@ -3,13 +3,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.parking_row import ParkingRow
-from app.models.parking_spot import ParkingSpot
-from app.domain.value_objects.spot_status import SpotStatus
 from app.models.parking_zone import ParkingZone
 from app.models.guidance_display import GuidanceDisplay
 from app.schemas.display import DisplayCreateRequest, DisplayItem, DisplayListResponse, DisplayMessageListResponse, DisplayMessageResponse, DisplaySummaryResponse, DisplayListSummaryResponse, DisplayUpdateRequest
-from app.domain.use_cases import calculate_zone_summary
+from app.services.display import (
+    get_display_message as build_display_message,
+    get_display_summary_by_display,
+    list_display_messages,
+)
 
 router = APIRouter(tags=["display"])
 
@@ -106,39 +107,13 @@ def get_displays_messages(
     zone_code: str | None = None,
     is_active: bool | None = None,
 ) -> DisplayMessageListResponse:
-    displays = db.scalars(
-        select(GuidanceDisplay).order_by(GuidanceDisplay.code)
-    ).all()
-    items = []
-    for display in displays:
-        zone = db.scalar(
-            select(ParkingZone).where(ParkingZone.id == display.zone_id)
+    return DisplayMessageListResponse(
+        items=list_display_messages(
+            db,
+            zone_code=zone_code,
+            is_active=is_active,
         )
-        if zone is None:
-            continue
-        if zone_code is not None and zone.code != zone_code:
-            continue
-        if is_active is not None and display.is_active != is_active:
-            continue
-        rows = db.execute(
-            select(ParkingSpot.status)
-            .join(ParkingRow, ParkingSpot.row_id == ParkingRow.id)
-            .where(ParkingRow.zone_id == display.zone_id)
-        ).all()
-
-        statuses = [SpotStatus(row.status) for row in rows]
-        summary = calculate_zone_summary(statuses)
-        message = f"{zone.code} {display.arrow_direction} {summary['free']}"
-        items.append(
-            DisplayMessageResponse(
-                display_code=display.code,
-                zone_code=zone.code,
-                arrow_direction=display.arrow_direction,
-                free_spots=summary["free"],
-                message=message,
-            )
-        )
-    return DisplayMessageListResponse(items=items)
+    )
 
 
 @router.post(
@@ -165,7 +140,7 @@ def create_display(
         title=request.title,
         code=request.code,
         zone_id=zone.id,
-        arrow_direction=request.arrow_direction,
+        arrow_direction=request.arrow_direction.value,
         is_active=request.is_active,
     )
 
@@ -236,25 +211,7 @@ def get_display_summary(
     if zone is None:
         raise HTTPException(status_code=404, detail="Zone not found.")
 
-    statement = (
-        select(ParkingSpot.status)
-        .join(ParkingRow, ParkingSpot.row_id == ParkingRow.id)
-        .where(ParkingRow.zone_id == display.zone_id)
-    )
-
-    rows = db.execute(statement).all()
-    statuses = [SpotStatus(row.status) for row in rows]
-    summary = calculate_zone_summary(statuses)
-
-    return DisplaySummaryResponse(
-        display_code=display.code,
-        display_title=display.title,
-        zone_code=zone.code,
-        arrow_direction=display.arrow_direction,
-        total_spots=summary["total"],
-        free_spots=summary["free"],
-        occupied_spots=summary["occupied"],
-    )
+    return get_display_summary_by_display(db, display, zone)
 
 
 @router.patch(
@@ -276,7 +233,7 @@ def update_display(
         display.title = request.title
     
     if request.arrow_direction is not None:
-        display.arrow_direction = request.arrow_direction
+        display.arrow_direction = request.arrow_direction.value
 
     if request.is_active is not None:
         display.is_active = request.is_active
@@ -306,33 +263,8 @@ def get_display_message(
     display_code: str,
     db: Session = Depends(get_db),
 ) -> DisplayMessageResponse:
-    display = db.scalar(
-        select(GuidanceDisplay).where(GuidanceDisplay.code == display_code)
-    )
-    if display is None:
+    message = build_display_message(db, display_code)
+    if message is None:
         raise HTTPException(status_code=404, detail="Display not found.")
 
-    zone = db.scalar(
-        select(ParkingZone).where(ParkingZone.id == display.zone_id)
-    )
-    if zone is None:
-        raise HTTPException(status_code=404, detail="Zone not found.")
-    
-    statuses = [
-        SpotStatus(row.status)
-        for row in db.execute(
-            select(ParkingSpot.status)
-            .join(ParkingRow, ParkingSpot.row_id == ParkingRow.id)
-            .where(ParkingRow.zone_id == display.zone_id)
-        ).all()
-    ]
-    summary = calculate_zone_summary(statuses)
-    message = f"{zone.code} {display.arrow_direction} {summary['free']}"
-
-    return DisplayMessageResponse(
-        display_code=display.code,
-        zone_code=zone.code,
-        arrow_direction=display.arrow_direction,
-        free_spots=summary["free"],
-        message=message,
-    )
+    return message

@@ -20,10 +20,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    op.drop_constraint("spot_occupancy_events_camera_id_fkey", "spot_occupancy_events", type_="foreignkey")
-    op.drop_index(op.f("ix_spot_occupancy_events_camera_id"), table_name="spot_occupancy_events")
-    op.drop_column("spot_occupancy_events", "camera_id")
-
     op.drop_index(op.f("ix_guidance_cameras_zone_id"), table_name="guidance_cameras")
     op.drop_index(op.f("ix_guidance_cameras_code"), table_name="guidance_cameras")
     op.drop_table("guidance_cameras")
@@ -47,13 +43,3 @@ def downgrade() -> None:
     )
     op.create_index(op.f("ix_guidance_cameras_code"), "guidance_cameras", ["code"], unique=True)
     op.create_index(op.f("ix_guidance_cameras_zone_id"), "guidance_cameras", ["zone_id"], unique=False)
-
-    op.add_column("spot_occupancy_events", sa.Column("camera_id", sa.Integer(), nullable=False))
-    op.create_index(op.f("ix_spot_occupancy_events_camera_id"), "spot_occupancy_events", ["camera_id"], unique=False)
-    op.create_foreign_key(
-        "spot_occupancy_events_camera_id_fkey",
-        "spot_occupancy_events",
-        "guidance_cameras",
-        ["camera_id"],
-        ["id"],
-    )

@@ -3,9 +3,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.parking_spot import ParkingSpot
 from app.models.spot_occupancy_event import SpotOccupancyEvent
 from app.schemas.spot_event import SpotEventRequest, SpotEventResponse
+from app.services.spots import AmbiguousSpotCodeError, resolve_spot
 
 
 router = APIRouter(tags=["spot-events"])
@@ -33,7 +33,22 @@ def create_spot_event(
     request: SpotEventRequest,
     db: Session = Depends(get_db),
 ) -> SpotEventResponse:
-    spot = db.scalar(select(ParkingSpot).where(ParkingSpot.code == request.spot_code))
+    try:
+        spot = resolve_spot(
+            db,
+            spot_code=request.spot_code,
+            zone_code=request.zone_code,
+            row_code=request.row_code,
+        )
+    except AmbiguousSpotCodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Spot code '{exc.spot_code}' is ambiguous. "
+                "Provide zone_code or row_code."
+            ),
+        ) from exc
+
     if spot is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

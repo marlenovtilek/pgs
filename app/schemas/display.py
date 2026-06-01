@@ -1,5 +1,7 @@
 from pydantic import BaseModel
 
+from app.domain.value_objects.arrow_direction import ArrowDirection
+
 
 class DisplayItem(BaseModel):
     zone_code: str
@@ -28,12 +30,12 @@ class DisplayCreateRequest(BaseModel):
     title: str
     code: str
     zone_code: str
-    arrow_direction: str
+    arrow_direction: ArrowDirection
     is_active: bool = True
 
 class DisplayUpdateRequest(BaseModel):
     title: str | None = None
-    arrow_direction: str | None = None
+    arrow_direction: ArrowDirection | None = None
     is_active: bool | None = None
 
 class DisplayMessageResponse(BaseModel):
@@ -45,4 +47,3 @@ class DisplayMessageResponse(BaseModel):
 
 class DisplayMessageListResponse(BaseModel):
     items: list[DisplayMessageResponse]
-
