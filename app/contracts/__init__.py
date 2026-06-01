@@ -1,6 +1,15 @@
-from app.contracts.mqtt_topics import SPOT_EVENTS_TOPIC, ZONE_STATUS_TOPIC_TEMPLATE
+from app.contracts.mqtt_topics import (
+    CAMERA_HEALTH_TOPIC,
+    MQTT_SUBSCRIBE_TOPICS,
+    SPOT_STATUS_TOPIC,
+    TOTAL_FREE_TOPIC,
+    ZONE_FREE_TOPIC,
+)
 
 __all__ = [
-    "SPOT_EVENTS_TOPIC",
-    "ZONE_STATUS_TOPIC_TEMPLATE",
+    "CAMERA_HEALTH_TOPIC",
+    "MQTT_SUBSCRIBE_TOPICS",
+    "SPOT_STATUS_TOPIC",
+    "TOTAL_FREE_TOPIC",
+    "ZONE_FREE_TOPIC",
 ]

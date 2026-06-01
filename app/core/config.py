@@ -5,6 +5,12 @@ class Settings(BaseSettings):
     app_name: str = "PGS (Parking Guidance Service)"
     debug: bool = True
     database_url: str = "postgresql+psycopg2://pgs:pgs@localhost:5432/pgs"
+    mqtt_host: str = "localhost"
+    mqtt_port: int = 1883
+    mqtt_username: str | None = None
+    mqtt_password: str | None = None
+    mqtt_client_id: str = "pgs-mqtt-listener"
+    mqtt_keepalive: int = 60
 
     model_config = SettingsConfigDict(
         env_file=".env",
