@@ -1,6 +1,6 @@
 import argparse
 
-from app.adapters.event_bus.mqtt import MqttMessage, MqttSubscriber
+from app.adapters.event_bus.mqtt import MqttMessage, MqttSubscriber, default_client_id
 from app.adapters.led.mock import mock_led_adapter
 from app.contracts.mqtt_topics import SPOT_STATUS_TOPIC
 from app.core.config import settings
@@ -78,7 +78,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--host", default=settings.mqtt_host)
     parser.add_argument("--port", type=int, default=settings.mqtt_port)
-    parser.add_argument("--client-id", default="pgs-mqtt-spot-consumer")
+    parser.add_argument("--client-id", default=default_client_id("pgs-mqtt-spot-consumer"))
     parser.add_argument(
         "--auto-create",
         action="store_true",

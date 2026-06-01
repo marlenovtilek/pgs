@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import socket
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -25,6 +27,11 @@ def decode_payload(raw_payload: bytes) -> tuple[Any, str]:
         return text, text
 
 
+def default_client_id(prefix: str) -> str:
+    hostname = socket.gethostname()
+    return f"{prefix}-{hostname}-{os.getpid()}"
+
+
 class MqttSubscriber:
     def __init__(
         self,
@@ -45,6 +52,7 @@ class MqttSubscriber:
         self.on_message = on_message
 
         self.client = self._create_client(client_id=client_id)
+        self.client.reconnect_delay_set(min_delay=1, max_delay=30)
         if username is not None:
             self.client.username_pw_set(username, password=password)
 
