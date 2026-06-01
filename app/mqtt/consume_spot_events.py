@@ -5,11 +5,14 @@ from app.adapters.led.mock import mock_led_adapter
 from app.contracts.mqtt_topics import SPOT_STATUS_TOPIC
 from app.core.config import settings
 from app.core.database import SessionLocal
-from app.services.mqtt_spot_events import build_spot_event_request_from_mqtt
+from app.services.mqtt_spot_events import (
+    build_spot_event_request_from_mqtt,
+    ensure_mqtt_parking_config,
+)
 from app.services.spot_events import AmbiguousSpotCodeError, process_spot_event
 
 
-def handle_message(message: MqttMessage) -> None:
+def handle_message(message: MqttMessage, *, auto_create: bool = False) -> None:
     if not isinstance(message.payload, dict):
         print(f"ignored non-json topic={message.topic} payload={message.raw_payload}")
         return
@@ -24,6 +27,19 @@ def handle_message(message: MqttMessage) -> None:
         return
 
     with SessionLocal() as db:
+        if auto_create:
+            try:
+                created = ensure_mqtt_parking_config(db, request)
+            except ValueError as exc:
+                print(f"auto_create_failed spot_code={request.spot_code} error={exc}")
+                return
+            if created:
+                print(
+                    "auto_created "
+                    f"spot_code={request.spot_code} "
+                    f"zone_code={request.zone_code}"
+                )
+
         try:
             result = process_spot_event(
                 db,
@@ -63,6 +79,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--host", default=settings.mqtt_host)
     parser.add_argument("--port", type=int, default=settings.mqtt_port)
     parser.add_argument("--client-id", default="pgs-mqtt-spot-consumer")
+    parser.add_argument(
+        "--auto-create",
+        action="store_true",
+        help="Create missing zone/row/spot/display records from MQTT payloads.",
+    )
     return parser.parse_args()
 
 
@@ -72,7 +93,7 @@ def main() -> None:
         host=args.host,
         port=args.port,
         topics=(SPOT_STATUS_TOPIC,),
-        on_message=handle_message,
+        on_message=lambda message: handle_message(message, auto_create=args.auto_create),
         client_id=args.client_id,
         keepalive=settings.mqtt_keepalive,
         username=settings.mqtt_username,
