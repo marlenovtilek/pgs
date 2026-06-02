@@ -2,6 +2,7 @@ import asyncio
 from dataclasses import dataclass
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
@@ -35,6 +36,23 @@ def build_dedup_key(
     return f"{spot_code}:{status_value}:{detected_at_iso}:{source}"
 
 
+def _duplicate_result(
+    *,
+    event: SpotOccupancyEvent,
+    spot_code: str,
+) -> SpotEventResult:
+    return SpotEventResult(
+        response=SpotEventResponse(
+            success=True,
+            dedup_key=event.dedup_key,
+            spot_code=spot_code,
+            status=event.status,
+        ),
+        is_duplicate=True,
+        led_commands_sent=0,
+    )
+
+
 def process_spot_event(
     db: Session,
     request: SpotEventRequest,
@@ -49,9 +67,10 @@ def process_spot_event(
     )
     if spot is None:
         raise LookupError(request.spot_code)
+    spot_code = spot.code
 
     dedup_key = build_dedup_key(
-        spot_code=spot.code,
+        spot_code=spot_code,
         status_value=request.status.value,
         detected_at_iso=request.detected_at.isoformat(),
         source=request.source,
@@ -62,16 +81,7 @@ def process_spot_event(
         select(SpotOccupancyEvent).where(SpotOccupancyEvent.dedup_key == dedup_key)
     )
     if existing_event is not None:
-        return SpotEventResult(
-            response=SpotEventResponse(
-                success=True,
-                dedup_key=existing_event.dedup_key,
-                spot_code=spot.code,
-                status=existing_event.status,
-            ),
-            is_duplicate=True,
-            led_commands_sent=0,
-        )
+        return _duplicate_result(event=existing_event, spot_code=spot_code)
 
     event = SpotOccupancyEvent(
         spot_id=spot.id,
@@ -84,7 +94,16 @@ def process_spot_event(
     )
     db.add(event)
     spot.status = request.status.value
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        existing_event = db.scalar(
+            select(SpotOccupancyEvent).where(SpotOccupancyEvent.dedup_key == dedup_key)
+        )
+        if existing_event is None:
+            raise
+        return _duplicate_result(event=existing_event, spot_code=spot_code)
 
     led_commands_sent = 0
     if display_port is not None:
@@ -100,7 +119,7 @@ def process_spot_event(
         response=SpotEventResponse(
             success=True,
             dedup_key=dedup_key,
-            spot_code=spot.code,
+            spot_code=spot_code,
             status=spot.status,
         ),
         is_duplicate=False,
@@ -122,9 +141,10 @@ async def process_spot_event_async(
     )
     if spot is None:
         raise LookupError(request.spot_code)
+    spot_code = spot.code
 
     dedup_key = build_dedup_key(
-        spot_code=spot.code,
+        spot_code=spot_code,
         status_value=request.status.value,
         detected_at_iso=request.detected_at.isoformat(),
         source=request.source,
@@ -135,16 +155,7 @@ async def process_spot_event_async(
         select(SpotOccupancyEvent).where(SpotOccupancyEvent.dedup_key == dedup_key)
     )
     if existing_event is not None:
-        return SpotEventResult(
-            response=SpotEventResponse(
-                success=True,
-                dedup_key=existing_event.dedup_key,
-                spot_code=spot.code,
-                status=existing_event.status,
-            ),
-            is_duplicate=True,
-            led_commands_sent=0,
-        )
+        return _duplicate_result(event=existing_event, spot_code=spot_code)
 
     event = SpotOccupancyEvent(
         spot_id=spot.id,
@@ -157,7 +168,16 @@ async def process_spot_event_async(
     )
     db.add(event)
     spot.status = request.status.value
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        existing_event = await db.scalar(
+            select(SpotOccupancyEvent).where(SpotOccupancyEvent.dedup_key == dedup_key)
+        )
+        if existing_event is None:
+            raise
+        return _duplicate_result(event=existing_event, spot_code=spot_code)
 
     led_commands_sent = 0
     if display_port is not None:
@@ -171,7 +191,7 @@ async def process_spot_event_async(
         response=SpotEventResponse(
             success=True,
             dedup_key=dedup_key,
-            spot_code=spot.code,
+            spot_code=spot_code,
             status=spot.status,
         ),
         is_duplicate=False,

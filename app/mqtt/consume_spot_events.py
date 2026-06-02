@@ -94,17 +94,25 @@ def main() -> None:
 
 async def main_async() -> None:
     args = parse_args()
-    async with AsyncMqttSubscriber(
-        host=args.host,
-        port=args.port,
-        topics=(SPOT_STATUS_TOPIC,),
-        client_id=args.client_id,
-        keepalive=settings.mqtt_keepalive,
-        username=settings.mqtt_username,
-        password=settings.mqtt_password,
-    ) as subscriber:
-        async for message in subscriber.messages():
-            await handle_message(message, auto_create=args.auto_create)
+    while True:
+        try:
+            async with AsyncMqttSubscriber(
+                host=args.host,
+                port=args.port,
+                topics=(SPOT_STATUS_TOPIC,),
+                client_id=args.client_id,
+                keepalive=settings.mqtt_keepalive,
+                username=settings.mqtt_username,
+                password=settings.mqtt_password,
+            ) as subscriber:
+                async for message in subscriber.messages():
+                    await handle_message(message, auto_create=args.auto_create)
+        except OSError as exc:
+            print(
+                f"MQTT connection unavailable: {args.host}:{args.port} "
+                f"error={exc}. retrying in 5s"
+            )
+            await asyncio.sleep(5)
 
 
 if __name__ == "__main__":

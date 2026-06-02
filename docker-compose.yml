@@ -1,4 +1,23 @@
 services:
+  pgs-migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pgs-migrate
+    working_dir: /app
+    command: alembic upgrade head
+    volumes:
+      - ./app:/app/app
+      - ./migrations:/app/migrations
+      - ./alembic.ini:/app/alembic.ini
+    env_file:
+      - .env
+    depends_on:
+      pgs-db:
+        condition: service_healthy
+    networks:
+      - default
+
   pgs-api:
     build:
       context: .
@@ -14,9 +33,37 @@ services:
     env_file:
       - .env
     depends_on:
-      - pgs-db
-    # networks:
-    #   - smartparking_db_network
+      pgs-db:
+        condition: service_healthy
+      pgs-migrate:
+        condition: service_completed_successfully
+    networks:
+      - default
+      - smartparking_db_network
+    restart: unless-stopped
+
+  pgs-mqtt-consumer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pgs-mqtt-consumer
+    working_dir: /app
+    command: python -m app.mqtt.consume_spot_events --auto-create
+    volumes:
+      - ./app:/app/app
+      - ./migrations:/app/migrations
+      - ./alembic.ini:/app/alembic.ini
+    env_file:
+      - .env
+    depends_on:
+      pgs-db:
+        condition: service_healthy
+      pgs-migrate:
+        condition: service_completed_successfully
+    networks:
+      - default
+      - smartparking_db_network
+    restart: unless-stopped
 
   pgs-db:
     image: postgres:16
@@ -29,11 +76,17 @@ services:
       - "5435:5432"
     volumes:
       - pgs_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pgs -d pgs"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - default
 
-
-# networks: 
-#   smartparking_db_network:  
-#     external: true
+networks:
+  smartparking_db_network:
+    external: true
 
 volumes:
   pgs_pgdata: {}
