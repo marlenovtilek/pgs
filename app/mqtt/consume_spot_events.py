@@ -1,18 +1,19 @@
 import argparse
+import asyncio
 
-from app.adapters.event_bus.mqtt import MqttMessage, MqttSubscriber, default_client_id
+from app.adapters.event_bus.mqtt import AsyncMqttSubscriber, MqttMessage, default_client_id
 from app.adapters.led.mock import mock_led_adapter
 from app.contracts.mqtt_topics import SPOT_STATUS_TOPIC
+from app.core.async_database import AsyncSessionLocal
 from app.core.config import settings
-from app.core.database import SessionLocal
 from app.services.mqtt_spot_events import (
     build_spot_event_request_from_mqtt,
-    ensure_mqtt_parking_config,
+    ensure_mqtt_parking_config_async,
 )
-from app.services.spot_events import AmbiguousSpotCodeError, process_spot_event
+from app.services.spot_events import AmbiguousSpotCodeError, process_spot_event_async
 
 
-def handle_message(message: MqttMessage, *, auto_create: bool = False) -> None:
+async def handle_message(message: MqttMessage, *, auto_create: bool = False) -> None:
     if not isinstance(message.payload, dict):
         print(f"ignored non-json topic={message.topic} payload={message.raw_payload}")
         return
@@ -26,10 +27,10 @@ def handle_message(message: MqttMessage, *, auto_create: bool = False) -> None:
         print(f"invalid topic={message.topic} error={exc}")
         return
 
-    with SessionLocal() as db:
+    async with AsyncSessionLocal() as db:
         if auto_create:
             try:
-                created = ensure_mqtt_parking_config(db, request)
+                created = await ensure_mqtt_parking_config_async(db, request)
             except ValueError as exc:
                 print(f"auto_create_failed spot_code={request.spot_code} error={exc}")
                 return
@@ -41,7 +42,7 @@ def handle_message(message: MqttMessage, *, auto_create: bool = False) -> None:
                 )
 
         try:
-            result = process_spot_event(
+            result = await process_spot_event_async(
                 db,
                 request,
                 display_port=mock_led_adapter,
@@ -88,18 +89,22 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    asyncio.run(main_async())
+
+
+async def main_async() -> None:
     args = parse_args()
-    subscriber = MqttSubscriber(
+    async with AsyncMqttSubscriber(
         host=args.host,
         port=args.port,
         topics=(SPOT_STATUS_TOPIC,),
-        on_message=lambda message: handle_message(message, auto_create=args.auto_create),
         client_id=args.client_id,
         keepalive=settings.mqtt_keepalive,
         username=settings.mqtt_username,
         password=settings.mqtt_password,
-    )
-    subscriber.loop_forever()
+    ) as subscriber:
+        async for message in subscriber.messages():
+            await handle_message(message, auto_create=args.auto_create)
 
 
 if __name__ == "__main__":

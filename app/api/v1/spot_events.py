@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.adapters.led.mock import mock_led_adapter
-from app.core.database import get_db
+from app.core.async_database import get_async_db
 from app.schemas.spot_event import SpotEventRequest, SpotEventResponse
-from app.services.spot_events import AmbiguousSpotCodeError, process_spot_event
+from app.services.spot_events import AmbiguousSpotCodeError, process_spot_event_async
 
 
 router = APIRouter(tags=["spot-events"])
@@ -15,12 +15,12 @@ router = APIRouter(tags=["spot-events"])
     response_model=SpotEventResponse,
     status_code=status.HTTP_200_OK,
 )
-def create_spot_event(
+async def create_spot_event(
     request: SpotEventRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ) -> SpotEventResponse:
     try:
-        result = process_spot_event(
+        result = await process_spot_event_async(
             db,
             request,
             display_port=mock_led_adapter,

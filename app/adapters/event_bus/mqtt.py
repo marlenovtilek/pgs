@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import socket
@@ -99,6 +100,48 @@ class MqttSubscriber:
                 received_at=datetime.now(timezone.utc),
             )
         )
+
+
+class AsyncMqttSubscriber:
+    def __init__(
+        self,
+        *,
+        host: str,
+        port: int,
+        topics: Iterable[str],
+        client_id: str,
+        keepalive: int = 60,
+        username: str | None = None,
+        password: str | None = None,
+    ) -> None:
+        self.loop = asyncio.get_running_loop()
+        self.queue: asyncio.Queue[MqttMessage] = asyncio.Queue()
+        self.subscriber = MqttSubscriber(
+            host=host,
+            port=port,
+            topics=topics,
+            on_message=self._enqueue_message,
+            client_id=client_id,
+            keepalive=keepalive,
+            username=username,
+            password=password,
+        )
+
+    def _enqueue_message(self, message: MqttMessage) -> None:
+        self.loop.call_soon_threadsafe(self.queue.put_nowait, message)
+
+    async def __aenter__(self) -> "AsyncMqttSubscriber":
+        self.subscriber.connect()
+        self.subscriber.client.loop_start()
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        self.subscriber.client.disconnect()
+        self.subscriber.client.loop_stop()
+
+    async def messages(self):
+        while True:
+            yield await self.queue.get()
 
 
 def _is_success_reason_code(reason_code) -> bool:

@@ -1,22 +1,26 @@
 from fastapi import APIRouter, Depends, HTTPException, status as http_status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
+from app.core.async_database import get_async_db
 from app.domain.value_objects.spot_status import SpotStatus
 from app.schemas.spots import SpotDetailResponse, SpotListResponse
-from app.services.spots import AmbiguousSpotCodeError, get_spot_by_code, list_spots
+from app.services.spots import (
+    AmbiguousSpotCodeError,
+    get_spot_by_code_async,
+    list_spots_async,
+)
 
 
 router = APIRouter(tags=["spots"])
 
 
 @router.get("/spots", response_model=SpotListResponse)
-def get_spots(
+async def get_spots(
     status: SpotStatus | None = None,
     zone_code: str | None = None,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ) -> SpotListResponse:
-    return list_spots(
+    return await list_spots_async(
         db,
         status=status,
         zone_code=zone_code,
@@ -24,14 +28,14 @@ def get_spots(
 
 
 @router.get("/spots/{spot_code}", response_model=SpotDetailResponse)
-def get_spot(
+async def get_spot(
     spot_code: str,
     zone_code: str | None = None,
     row_code: str | None = None,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ) -> SpotDetailResponse:
     try:
-        spot = get_spot_by_code(
+        spot = await get_spot_by_code_async(
             db,
             spot_code,
             zone_code=zone_code,

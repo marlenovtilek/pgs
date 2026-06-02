@@ -2,7 +2,7 @@ from typing import Protocol
 
 
 class DisplayCommandPort(Protocol):
-    def show_zone_summary(
+    async def show_zone_summary(
         self,
         *,
         display_code: str,

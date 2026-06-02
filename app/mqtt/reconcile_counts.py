@@ -1,26 +1,27 @@
 import argparse
+import asyncio
 
-from app.adapters.event_bus.mqtt import MqttMessage, MqttSubscriber, default_client_id
+from app.adapters.event_bus.mqtt import AsyncMqttSubscriber, MqttMessage, default_client_id
 from app.contracts.mqtt_topics import TOTAL_FREE_TOPIC, ZONE_FREE_TOPIC
+from app.core.async_database import AsyncSessionLocal
 from app.core.config import settings
-from app.core.database import SessionLocal
 from app.services.mqtt_reconciliation import (
     is_total_free_topic,
-    reconcile_total_free_event,
-    reconcile_zone_free_event,
+    reconcile_total_free_event_async,
+    reconcile_zone_free_event_async,
     zone_id_from_topic,
 )
 
 
-def handle_message(message: MqttMessage) -> None:
+async def handle_message(message: MqttMessage) -> None:
     if not isinstance(message.payload, dict):
         print(f"ignored non-json topic={message.topic} payload={message.raw_payload}")
         return
 
-    with SessionLocal() as db:
+    async with AsyncSessionLocal() as db:
         try:
             if zone_id_from_topic(message.topic) is not None:
-                result = reconcile_zone_free_event(
+                result = await reconcile_zone_free_event_async(
                     db,
                     topic=message.topic,
                     payload=message.payload,
@@ -47,7 +48,10 @@ def handle_message(message: MqttMessage) -> None:
                 return
 
             if is_total_free_topic(message.topic):
-                result = reconcile_total_free_event(db, payload=message.payload)
+                result = await reconcile_total_free_event_async(
+                    db,
+                    payload=message.payload,
+                )
                 print(
                     "total "
                     f"mqtt_free={result.mqtt_free_spots} "
@@ -73,18 +77,22 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    asyncio.run(main_async())
+
+
+async def main_async() -> None:
     args = parse_args()
-    subscriber = MqttSubscriber(
+    async with AsyncMqttSubscriber(
         host=args.host,
         port=args.port,
         topics=(ZONE_FREE_TOPIC, TOTAL_FREE_TOPIC),
-        on_message=handle_message,
         client_id=args.client_id,
         keepalive=settings.mqtt_keepalive,
         username=settings.mqtt_username,
         password=settings.mqtt_password,
-    )
-    subscriber.loop_forever()
+    ) as subscriber:
+        async for message in subscriber.messages():
+            await handle_message(message)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 from sqlalchemy import case, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from app.domain.use_cases.calculate_zone_summary import calculate_zone_summary
@@ -18,6 +19,35 @@ def get_zone_summary_item(db: Session, zone_code: str) -> ZoneSummaryItem | None
         select(ParkingSpot.status)
         .join(ParkingRow, ParkingSpot.row_id == ParkingRow.id)
         .where(ParkingRow.zone_id == zone.id)
+    ).all()
+
+    summary = calculate_zone_summary([SpotStatus(row.status) for row in rows])
+
+    return ZoneSummaryItem(
+        zone_code=zone.code,
+        zone_title=zone.title,
+        total_spots=summary["total"],
+        free_spots=summary["free"],
+        occupied_spots=summary["occupied"],
+        offline_spots=summary["offline"],
+        unknown_spots=summary["unknown"],
+    )
+
+
+async def get_zone_summary_item_async(
+    db: AsyncSession,
+    zone_code: str,
+) -> ZoneSummaryItem | None:
+    zone = await db.scalar(select(ParkingZone).where(ParkingZone.code == zone_code))
+    if zone is None:
+        return None
+
+    rows = (
+        await db.execute(
+            select(ParkingSpot.status)
+            .join(ParkingRow, ParkingSpot.row_id == ParkingRow.id)
+            .where(ParkingRow.zone_id == zone.id)
+        )
     ).all()
 
     summary = calculate_zone_summary([SpotStatus(row.status) for row in rows])
@@ -74,4 +104,51 @@ def list_zone_summary_items(db: Session) -> list[ZoneSummaryItem]:
     ]
 
 
-__all__ = ["calculate_zone_summary", "get_zone_summary_item", "list_zone_summary_items"]
+async def list_zone_summary_items_async(db: AsyncSession) -> list[ZoneSummaryItem]:
+    statement = (
+        select(
+            ParkingZone.code.label("zone_code"),
+            ParkingZone.title.label("zone_title"),
+            func.count(ParkingSpot.id).label("total_spots"),
+            func.sum(
+                case((ParkingSpot.status == SpotStatus.FREE.value, 1), else_=0)
+            ).label("free_spots"),
+            func.sum(
+                case((ParkingSpot.status == SpotStatus.OCCUPIED.value, 1), else_=0)
+            ).label("occupied_spots"),
+            func.sum(
+                case((ParkingSpot.status == SpotStatus.OFFLINE.value, 1), else_=0)
+            ).label("offline_spots"),
+            func.sum(
+                case((ParkingSpot.status == SpotStatus.UNKNOWN.value, 1), else_=0)
+            ).label("unknown_spots"),
+        )
+        .join(ParkingRow, ParkingRow.zone_id == ParkingZone.id)
+        .join(ParkingSpot, ParkingSpot.row_id == ParkingRow.id)
+        .group_by(ParkingZone.id, ParkingZone.code, ParkingZone.title)
+        .order_by(ParkingZone.code)
+    )
+
+    rows = (await db.execute(statement)).all()
+
+    return [
+        ZoneSummaryItem(
+            zone_code=row.zone_code,
+            zone_title=row.zone_title,
+            total_spots=row.total_spots,
+            free_spots=row.free_spots or 0,
+            occupied_spots=row.occupied_spots or 0,
+            offline_spots=row.offline_spots or 0,
+            unknown_spots=row.unknown_spots or 0,
+        )
+        for row in rows
+    ]
+
+
+__all__ = [
+    "calculate_zone_summary",
+    "get_zone_summary_item",
+    "get_zone_summary_item_async",
+    "list_zone_summary_items",
+    "list_zone_summary_items_async",
+]

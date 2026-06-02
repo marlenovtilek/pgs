@@ -1,3 +1,5 @@
+import asyncio
+
 from app.adapters.led.mock import MockLedDisplayAdapter
 from app.services.led import publish_zone_display_messages
 
@@ -13,10 +15,12 @@ def test_publish_zone_display_messages_sends_active_display_commands(db_session)
     db_session.commit()
     adapter = MockLedDisplayAdapter()
 
-    sent = publish_zone_display_messages(
-        db_session,
-        zone_id=zone.id,
-        display_port=adapter,
+    sent = asyncio.run(
+        publish_zone_display_messages(
+            db_session,
+            zone_id=zone.id,
+            display_port=adapter,
+        )
     )
 
     assert sent == 1

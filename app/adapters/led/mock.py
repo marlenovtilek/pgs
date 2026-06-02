@@ -14,7 +14,7 @@ class MockLedDisplayAdapter:
     def __init__(self) -> None:
         self.commands: list[LedCommand] = []
 
-    def show_zone_summary(
+    async def show_zone_summary(
         self,
         *,
         display_code: str,

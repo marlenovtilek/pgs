@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from app.domain.value_objects.spot_status import SpotStatus
@@ -147,6 +148,84 @@ def ensure_mqtt_parking_config(db: Session, request: SpotEventRequest) -> bool:
 
     if created:
         db.commit()
+
+    return created
+
+
+async def ensure_mqtt_parking_config_async(
+    db: AsyncSession,
+    request: SpotEventRequest,
+) -> bool:
+    zone_code = request.zone_code
+    if zone_code is None:
+        raise ValueError("Cannot auto-create MQTT spot without zone_code.")
+
+    created = False
+
+    zone = await db.scalar(select(ParkingZone).where(ParkingZone.code == zone_code))
+    if zone is None:
+        zone = ParkingZone(
+            title=f"Zone {zone_code}",
+            code=zone_code,
+            level=None,
+            is_active=True,
+        )
+        db.add(zone)
+        await db.flush()
+        created = True
+
+    row = await db.scalar(
+        select(ParkingRow).where(
+            ParkingRow.zone_id == zone.id,
+            ParkingRow.code == zone_code,
+        )
+    )
+    if row is None:
+        row = ParkingRow(
+            zone_id=zone.id,
+            title=f"Row {zone_code}",
+            code=zone_code,
+            sort_order=0,
+            is_active=True,
+        )
+        db.add(row)
+        await db.flush()
+        created = True
+
+    spot = await db.scalar(
+        select(ParkingSpot).where(
+            ParkingSpot.row_id == row.id,
+            ParkingSpot.code == request.spot_code,
+        )
+    )
+    if spot is None:
+        spot = ParkingSpot(
+            row_id=row.id,
+            code=request.spot_code,
+            status=SpotStatus.UNKNOWN.value,
+            sort_order=_sort_order_from_spot_code(request.spot_code),
+            is_active=True,
+        )
+        db.add(spot)
+        created = True
+
+    display_code = f"DISP-{zone_code}"
+    display = await db.scalar(
+        select(GuidanceDisplay).where(GuidanceDisplay.code == display_code)
+    )
+    if display is None:
+        display = GuidanceDisplay(
+            title=f"Display {zone_code}",
+            code=display_code,
+            zone_id=zone.id,
+            arrow_direction=ArrowDirection.AHEAD.value,
+            is_active=True,
+        )
+        db.add(display)
+        created = True
+
+    if created:
+        await db.commit()
 
     return created
 
