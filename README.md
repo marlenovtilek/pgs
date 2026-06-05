@@ -45,35 +45,6 @@ flowchart LR
     LedPort -. future .-> RealLED[Real LED hardware adapter]
 ```
 
-Если Markdown viewer не рендерит Mermaid, та же схема в plain text:
-
-```text
-SmartParking / UNV
-        |
-        | MQTT: parking/spots/+/status
-        v
-MQTT broker / EMQX
-        |
-        v
-pgs-mqtt-consumer
-        |
-        v
-PGS domain services <---------- pgs-api / FastAPI
-        ^                         ^
-        |                         |
-        |                         +---------- Starlette Admin
-        |
-        v
-PostgreSQL
-        |
-        v
-DisplayCommandPort
-        |
-        +--> Mock LED adapter --> Admin LED Simulator
-        |
-        +--> future Vendor LED adapter --> Real LED hardware
-```
-
 ### Контейнеры
 
 ```mermaid
@@ -92,31 +63,6 @@ flowchart TB
     Bootstrap --> Consumer
     Consumer --> DB
     API --> DB
-```
-
-Plain text:
-
-```text
-docker compose
-|
-+-- pgs-db
-|     PostgreSQL database
-|
-+-- pgs-migrate
-|     waits for pgs-db
-|     runs alembic upgrade head
-|
-+-- pgs-bootstrap
-|     waits for migrations
-|     creates base floors/sectors/displays/admin user
-|
-+-- pgs-api
-|     FastAPI + Admin + LED simulator
-|     reads/writes pgs-db
-|
-+-- pgs-mqtt-consumer
-      listens MQTT broker
-      writes spot events into pgs-db
 ```
 
 Сервисы:
@@ -190,35 +136,6 @@ erDiagram
         string source
         datetime detected_at
     }
-```
-
-Plain text:
-
-```text
-ParkingFloor
-  id
-  code: B1
-  title: Floor B1
-  |
-  +-- ParkingSector
-      id
-      code: B1-A
-      sector_letter: A
-      |
-      +-- ParkingZone / camera zone
-      |   id
-      |   code: B1-A-01
-      |   zone_number: 01
-      |   |
-      |   +-- ParkingSpot
-      |       id
-      |       code: B1-A-01-1
-      |       status: FREE / OCCUPIED / OFFLINE / UNKNOWN
-      |
-      +-- GuidanceDisplay
-          id
-          code: DISP-B1-A
-          arrow_direction: LEFT / RIGHT / AHEAD
 ```
 
 Иерархия:
@@ -353,33 +270,6 @@ sequenceDiagram
     Consumer->>DB: update parking spot status
     Consumer->>LED: recalculate sector display messages
     LED-->>Consumer: LED command count
-```
-
-Plain text:
-
-```text
-1. MQTT broker sends:
-   topic   = parking/spots/B1-A-01-1/status
-   payload = {"status": "free", ...}
-
-2. pgs-mqtt-consumer validates:
-   B1-A-01-1 must match FLOOR-SECTOR-CAMERA_ZONE-SPOT
-
-3. PGS finds configured sector:
-   B1-A
-
-4. If needed, PGS auto-creates:
-   camera zone B1-A-01
-   parking spot B1-A-01-1
-
-5. PGS saves occupancy event and updates spot status:
-   B1-A-01-1 -> FREE
-
-6. PGS recalculates sector free count:
-   B1-A -> 93 free spots
-
-7. PGS builds LED command:
-   DISP-B1-A -> LEFT 93 P
 ```
 
 ### Auto-create
@@ -1033,50 +923,6 @@ flowchart TD
     Count --> Command[Build LED command]
     Command --> Simulator[Admin LED simulator updates]
     Command -. future .-> Hardware[Real LED display]
-```
-
-Plain text:
-
-```text
-docker compose up
-  |
-  v
-pgs-migrate
-  |
-  v
-pgs-bootstrap
-  |
-  +--> creates B1, B1-A, B1-B, B1-C
-  +--> creates initial guidance displays
-  +--> creates admin user
-  |
-  v
-pgs-api starts
-  |
-  +--> /api/v1
-  +--> /admin
-  +--> /admin/led-simulator
-  |
-  v
-pgs-mqtt-consumer starts
-  |
-  v
-MQTT event arrives
-  |
-  v
-PGS validates spot code
-  |
-  v
-PGS creates/updates camera zone and spot
-  |
-  v
-PGS recalculates free spots
-  |
-  v
-PGS produces LED message
-  |
-  +--> LED simulator now
-  +--> real LED adapter in the future
 ```
 
 Ожидаемый результат:
