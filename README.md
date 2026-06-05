@@ -423,7 +423,7 @@ DisplayCommandPort
 ```json
 {
   "display_code": "DISP-B1-A",
-  "zone_code": "B1-A",
+  "sector_code": "B1-A",
   "arrow_direction": "LEFT",
   "free_spots": 93,
   "parking_symbol": "P",
@@ -491,7 +491,7 @@ Authorization: Bearer <API_TOKEN>
 
 ```text
 status=FREE
-zone_code=B1-A
+sector_code=B1-A
 ```
 
 Пример:
@@ -501,15 +501,15 @@ curl http://localhost:8010/api/v1/spots \
   -H "Authorization: Bearer <API_TOKEN>"
 ```
 
-### Zones
+### Sector summaries
 
-В API название `zone_code` исторически используется для кода сектора, например `B1-A`.
+`sector_code` - это код сектора, например `B1-A`.
 
 | Method | Path | Назначение |
 | --- | --- | --- |
 | `GET` | `/api/v1/zones/summary` | Summary по всем секторам |
-| `GET` | `/api/v1/zones/{zone_code}/summary` | Summary по сектору |
-| `GET` | `/api/v1/zones/{zone_code}/messages` | LED messages по сектору |
+| `GET` | `/api/v1/zones/{sector_code}/summary` | Summary по сектору |
+| `GET` | `/api/v1/zones/{sector_code}/messages` | LED messages по сектору |
 
 Пример:
 
@@ -520,7 +520,7 @@ curl http://localhost:8010/api/v1/zones/summary \
 
 ### Displays
 
-В API поле `zone_code` у display тоже означает сектор, к которому привязано табло.
+В API поле `sector_code` у display означает сектор, к которому привязано табло.
 
 | Method | Path | Назначение |
 | --- | --- | --- |
@@ -790,7 +790,7 @@ docker compose exec pgs-api python -m app.simulation.bootstrap_parking_config \
 
 ```bash
 docker compose exec pgs-api python -m app.simulation.seed_parking_map \
-  --zone-spec B1-A=B1-A-01-1..B1-A-01-6 \
+  --sector-spec B1-A=B1-A-01-1..B1-A-01-6 \
   --initial-status UNKNOWN
 ```
 
@@ -879,7 +879,7 @@ app/api/led_simulator.py             - HTML/JS LED simulator
 ```json
 {
   "display_code": "DISP-B1-A",
-  "zone_code": "B1-A",
+  "sector_code": "B1-A",
   "arrow_direction": "LEFT",
   "free_spots": 93,
   "parking_symbol": "P",

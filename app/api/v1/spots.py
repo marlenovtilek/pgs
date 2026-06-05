@@ -17,20 +17,20 @@ router = APIRouter(tags=["spots"])
 @router.get("/spots", response_model=SpotListResponse)
 async def get_spots(
     status: SpotStatus | None = None,
-    zone_code: str | None = None,
+    sector_code: str | None = None,
     db: AsyncSession = Depends(get_async_db),
 ) -> SpotListResponse:
     return await list_spots_async(
         db,
         status=status,
-        zone_code=zone_code,
+        sector_code=sector_code,
     )
 
 
 @router.get("/spots/{spot_code}", response_model=SpotDetailResponse)
 async def get_spot(
     spot_code: str,
-    zone_code: str | None = None,
+    sector_code: str | None = None,
     row_code: str | None = None,
     db: AsyncSession = Depends(get_async_db),
 ) -> SpotDetailResponse:
@@ -38,7 +38,7 @@ async def get_spot(
         spot = await get_spot_by_code_async(
             db,
             spot_code,
-            zone_code=zone_code,
+            sector_code=sector_code,
             row_code=row_code,
         )
     except AmbiguousSpotCodeError as exc:
@@ -46,7 +46,7 @@ async def get_spot(
             status_code=http_status.HTTP_409_CONFLICT,
             detail=(
                 f"Spot code '{exc.spot_code}' is ambiguous. "
-                "Provide zone_code or row_code."
+                "Provide sector_code or row_code."
             ),
         ) from exc
 

@@ -11,12 +11,12 @@ from app.models.parking_zone import ParkingZone
 from app.schemas.zone_summary import ZoneSummaryItem
 
 
-def get_zone_summary_item(db: Session, zone_code: str) -> ZoneSummaryItem | None:
+def get_zone_summary_item(db: Session, sector_code: str) -> ZoneSummaryItem | None:
     sector = db.scalar(
         select(ParkingSector)
         .join(ParkingFloor, ParkingSector.floor_id == ParkingFloor.id)
         .where(
-            ParkingSector.code == zone_code,
+            ParkingSector.code == sector_code,
             ParkingSector.is_active.is_(True),
             ParkingFloor.is_active.is_(True),
         )
@@ -37,8 +37,8 @@ def get_zone_summary_item(db: Session, zone_code: str) -> ZoneSummaryItem | None
     summary = calculate_zone_summary([SpotStatus(row.status) for row in rows])
 
     return ZoneSummaryItem(
-        zone_code=sector.code,
-        zone_title=sector.title,
+        sector_code=sector.code,
+        sector_title=sector.title,
         total_spots=summary["total"],
         free_spots=summary["free"],
         occupied_spots=summary["occupied"],
@@ -49,13 +49,13 @@ def get_zone_summary_item(db: Session, zone_code: str) -> ZoneSummaryItem | None
 
 async def get_zone_summary_item_async(
     db: AsyncSession,
-    zone_code: str,
+    sector_code: str,
 ) -> ZoneSummaryItem | None:
     sector = await db.scalar(
         select(ParkingSector)
         .join(ParkingFloor, ParkingSector.floor_id == ParkingFloor.id)
         .where(
-            ParkingSector.code == zone_code,
+            ParkingSector.code == sector_code,
             ParkingSector.is_active.is_(True),
             ParkingFloor.is_active.is_(True),
         )
@@ -78,8 +78,8 @@ async def get_zone_summary_item_async(
     summary = calculate_zone_summary([SpotStatus(row.status) for row in rows])
 
     return ZoneSummaryItem(
-        zone_code=sector.code,
-        zone_title=sector.title,
+        sector_code=sector.code,
+        sector_title=sector.title,
         total_spots=summary["total"],
         free_spots=summary["free"],
         occupied_spots=summary["occupied"],
@@ -91,8 +91,8 @@ async def get_zone_summary_item_async(
 def list_zone_summary_items(db: Session) -> list[ZoneSummaryItem]:
     statement = (
         select(
-            ParkingSector.code.label("zone_code"),
-            ParkingSector.title.label("zone_title"),
+            ParkingSector.code.label("sector_code"),
+            ParkingSector.title.label("sector_title"),
             func.count(ParkingSpot.id).label("total_spots"),
             func.sum(
                 case((ParkingSpot.status == SpotStatus.FREE.value, 1), else_=0)
@@ -124,8 +124,8 @@ def list_zone_summary_items(db: Session) -> list[ZoneSummaryItem]:
 
     return [
         ZoneSummaryItem(
-            zone_code=row.zone_code,
-            zone_title=row.zone_title,
+            sector_code=row.sector_code,
+            sector_title=row.sector_title,
             total_spots=row.total_spots,
             free_spots=row.free_spots or 0,
             occupied_spots=row.occupied_spots or 0,
@@ -139,8 +139,8 @@ def list_zone_summary_items(db: Session) -> list[ZoneSummaryItem]:
 async def list_zone_summary_items_async(db: AsyncSession) -> list[ZoneSummaryItem]:
     statement = (
         select(
-            ParkingSector.code.label("zone_code"),
-            ParkingSector.title.label("zone_title"),
+            ParkingSector.code.label("sector_code"),
+            ParkingSector.title.label("sector_title"),
             func.count(ParkingSpot.id).label("total_spots"),
             func.sum(
                 case((ParkingSpot.status == SpotStatus.FREE.value, 1), else_=0)
@@ -172,8 +172,8 @@ async def list_zone_summary_items_async(db: AsyncSession) -> list[ZoneSummaryIte
 
     return [
         ZoneSummaryItem(
-            zone_code=row.zone_code,
-            zone_title=row.zone_title,
+            sector_code=row.sector_code,
+            sector_title=row.sector_title,
             total_spots=row.total_spots,
             free_spots=row.free_spots or 0,
             occupied_spots=row.occupied_spots or 0,

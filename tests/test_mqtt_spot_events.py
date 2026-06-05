@@ -63,7 +63,7 @@ def test_build_spot_event_request_from_real_mqtt_payload():
     )
 
     assert request.spot_code == "B1-A-01-1"
-    assert request.zone_code == "B1-A"
+    assert request.sector_code == "B1-A"
     assert request.status == SpotStatus.OCCUPIED
     assert request.source == "MQTT"
     assert request.event_id == "B1-A-01-1:occupied:2026-06-01T11:09:57.617346"
@@ -82,7 +82,7 @@ def test_build_spot_event_request_treats_payload_camera_zone_as_row_code():
         },
     )
 
-    assert request.zone_code == "B1-A"
+    assert request.sector_code == "B1-A"
     assert request.row_code == "B1-A-16"
 
 

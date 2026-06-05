@@ -609,7 +609,7 @@ LED_SIMULATOR_HTML = """<!doctype html>
           <article class="display ${isFull ? "full" : ""}">
             <div class="display-header">
               <span class="code">${escapeHtml(item.display_code)}</span>
-              <span class="zone">${escapeHtml(item.zone_code)}</span>
+              <span class="zone">${escapeHtml(item.sector_code)}</span>
             </div>
             <div class="led-face">
               <div class="arrow">${arrowSymbolHtml(item.arrow_direction)}</div>
@@ -617,7 +617,7 @@ LED_SIMULATOR_HTML = """<!doctype html>
               ${parkingSymbolHtml(item)}
             </div>
             <div class="meta">
-              <span class="pill">${escapeHtml(item.zone_code)} ${escapeHtml(item.display_text || item.arrow_direction)}</span>
+              <span class="pill">${escapeHtml(item.sector_code)} ${escapeHtml(item.display_text || item.arrow_direction)}</span>
             </div>
           </article>
         `;
@@ -654,7 +654,7 @@ LED_SIMULATOR_HTML = """<!doctype html>
 
     function groupSpots(items) {
       return items.reduce((levels, spot) => {
-        const parsed = parseSpotCode(spot.spot_code, spot.zone_code);
+        const parsed = parseSpotCode(spot.spot_code, spot.sector_code);
         const enrichedSpot = { ...spot, ...parsed };
         levels[parsed.levelCode] ??= {};
         levels[parsed.levelCode][parsed.zoneCode] ??= [];

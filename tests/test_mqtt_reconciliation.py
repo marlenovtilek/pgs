@@ -31,7 +31,7 @@ def test_free_spots_from_payload_requires_integer():
 
 
 def test_reconcile_zone_free_event_returns_diff_and_unknowns(db_session):
-    _, row = seed_zone_with_row(db_session, zone_code="B1-C", row_code="B1-C")
+    _, row = seed_zone_with_row(db_session, sector_code="B1-C", row_code="B1-C")
     seed_spot(db_session, row, code="B1-C001", status="FREE")
     seed_spot(db_session, row, code="B1-C002", status="OCCUPIED")
     seed_spot(db_session, row, code="B1-C003", status="UNKNOWN")
@@ -43,7 +43,7 @@ def test_reconcile_zone_free_event_returns_diff_and_unknowns(db_session):
         payload={"zone_id": "B1-C", "free_spots": 2},
     )
 
-    assert result.zone_code == "B1-C"
+    assert result.sector_code == "B1-C"
     assert result.mqtt_free_spots == 2
     assert result.pgs_free_spots == 1
     assert result.diff == 1
@@ -60,14 +60,14 @@ def test_reconcile_zone_free_event_handles_missing_zone(db_session):
         payload={"zone_id": "MISSING", "free_spots": 2},
     )
 
-    assert result.zone_code == "MISSING"
+    assert result.sector_code == "MISSING"
     assert result.pgs_free_spots is None
     assert result.diff is None
 
 
 def test_reconcile_total_free_event_returns_total_diff(db_session):
-    _, row_a = seed_zone_with_row(db_session, zone_code="A", row_code="A")
-    _, row_b = seed_zone_with_row(db_session, zone_code="B", row_code="B")
+    _, row_a = seed_zone_with_row(db_session, sector_code="A", row_code="A")
+    _, row_b = seed_zone_with_row(db_session, sector_code="B", row_code="B")
     seed_spot(db_session, row_a, code="A001", status="FREE")
     seed_spot(db_session, row_b, code="B001", status="FREE")
     seed_spot(db_session, row_b, code="B002", status="OCCUPIED")

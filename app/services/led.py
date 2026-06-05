@@ -9,26 +9,26 @@ from app.models.parking_zone import ParkingZone
 from app.services.display import list_display_messages, list_display_messages_async
 
 
-async def publish_zone_display_messages(
+async def publish_sector_display_messages(
     db: Session,
     *,
-    zone_id: int,
+    sector_id: int,
     display_port: DisplayCommandPort,
 ) -> int:
-    zone_code = db.scalar(select(ParkingSector.code).where(ParkingSector.id == zone_id))
-    if zone_code is None:
+    sector_code = db.scalar(select(ParkingSector.code).where(ParkingSector.id == sector_id))
+    if sector_code is None:
         return 0
 
     messages = list_display_messages(
         db,
-        zone_code=zone_code,
+        sector_code=sector_code,
         is_active=True,
     )
 
     for message in messages:
-        await display_port.show_zone_summary(
+        await display_port.show_sector_summary(
             display_code=message.display_code,
-            zone_code=message.zone_code,
+            sector_code=message.sector_code,
             free_spots=message.free_spots,
             arrow_direction=message.arrow_direction,
             parking_symbol=message.parking_symbol,
@@ -39,47 +39,47 @@ async def publish_zone_display_messages(
     return len(messages)
 
 
-async def publish_spot_zone_display_messages(
+async def publish_spot_sector_display_messages(
     db: Session,
     *,
     spot_id: int,
     display_port: DisplayCommandPort,
 ) -> int:
-    zone_id = db.scalar(
+    sector_id = db.scalar(
         select(ParkingZone.sector_id)
         .join(ParkingSpot, ParkingSpot.zone_id == ParkingZone.id)
         .where(ParkingSpot.id == spot_id)
     )
-    if zone_id is None:
+    if sector_id is None:
         return 0
 
-    return await publish_zone_display_messages(
+    return await publish_sector_display_messages(
         db,
-        zone_id=zone_id,
+        sector_id=sector_id,
         display_port=display_port,
     )
 
 
-async def publish_zone_display_messages_async(
+async def publish_sector_display_messages_async(
     db: AsyncSession,
     *,
-    zone_id: int,
+    sector_id: int,
     display_port: DisplayCommandPort,
 ) -> int:
-    zone_code = await db.scalar(select(ParkingSector.code).where(ParkingSector.id == zone_id))
-    if zone_code is None:
+    sector_code = await db.scalar(select(ParkingSector.code).where(ParkingSector.id == sector_id))
+    if sector_code is None:
         return 0
 
     messages = await list_display_messages_async(
         db,
-        zone_code=zone_code,
+        sector_code=sector_code,
         is_active=True,
     )
 
     for message in messages:
-        await display_port.show_zone_summary(
+        await display_port.show_sector_summary(
             display_code=message.display_code,
-            zone_code=message.zone_code,
+            sector_code=message.sector_code,
             free_spots=message.free_spots,
             arrow_direction=message.arrow_direction,
             parking_symbol=message.parking_symbol,
@@ -90,22 +90,22 @@ async def publish_zone_display_messages_async(
     return len(messages)
 
 
-async def publish_spot_zone_display_messages_async(
+async def publish_spot_sector_display_messages_async(
     db: AsyncSession,
     *,
     spot_id: int,
     display_port: DisplayCommandPort,
 ) -> int:
-    zone_id = await db.scalar(
+    sector_id = await db.scalar(
         select(ParkingZone.sector_id)
         .join(ParkingSpot, ParkingSpot.zone_id == ParkingZone.id)
         .where(ParkingSpot.id == spot_id)
     )
-    if zone_id is None:
+    if sector_id is None:
         return 0
 
-    return await publish_zone_display_messages_async(
+    return await publish_sector_display_messages_async(
         db,
-        zone_id=zone_id,
+        sector_id=sector_id,
         display_port=display_port,
     )

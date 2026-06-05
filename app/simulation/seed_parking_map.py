@@ -5,9 +5,9 @@ from app.domain.value_objects.arrow_direction import ArrowDirection
 from app.domain.value_objects.spot_status import SpotStatus
 from app.services.parking_config import (
     deactivate_unlisted_displays,
-    deactivate_unlisted_zone_spots,
-    parse_zone_spec,
-    seed_zone_spots,
+    deactivate_unlisted_sector_spots,
+    parse_sector_spec,
+    seed_sector_spots,
 )
 
 
@@ -16,9 +16,9 @@ def parse_args() -> argparse.Namespace:
         description="Seed parking sectors, camera zones, spots, and default displays."
     )
     parser.add_argument(
-        "--zone-spec",
+        "--sector-spec",
         action="append",
-        required=True,
+        dest="sector_spec",
         help="Repeatable spec like B1-A=B1-A-01-1..B1-A-01-6.",
     )
     parser.add_argument(
@@ -34,22 +34,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--update-existing-status",
         action="store_true",
-        help="Set existing spots in the zone specs to the requested initial status.",
+        help="Set existing spots in the sector specs to the requested initial status.",
     )
     parser.add_argument(
         "--deactivate-missing-spots",
         action="store_true",
-        help="Deactivate spots in each seeded zone that are not present in the zone spec.",
+        help="Deactivate spots in each seeded sector that are not present in the sector spec.",
     )
     parser.add_argument(
         "--deactivate-other-displays",
         action="store_true",
-        help="Deactivate displays whose zones are not included in the zone specs.",
+        help="Deactivate displays whose sectors are not included in the sector specs.",
     )
     parser.add_argument(
-        "--deactivate-other-zone-spots",
+        "--deactivate-other-sector-spots",
         action="store_true",
-        help="Deactivate active spots whose zones are not included in the zone specs.",
+        help="Deactivate active spots whose sectors are not included in the sector specs.",
     )
     return parser.parse_args()
 
@@ -60,17 +60,20 @@ def main() -> None:
     arrow_direction = ArrowDirection(args.arrow_direction)
 
     with SessionLocal() as db:
-        active_zone_codes: set[str] = set()
-        zone_spot_codes: dict[str, list[str]] = {}
-        for raw_spec in args.zone_spec:
-            zone_code, spot_codes = parse_zone_spec(raw_spec)
-            active_zone_codes.add(zone_code)
-            zone_spot_codes.setdefault(zone_code, []).extend(spot_codes)
+        if not args.sector_spec:
+            raise SystemExit("Provide at least one --sector-spec.")
 
-        for zone_code, spot_codes in zone_spot_codes.items():
-            result = seed_zone_spots(
+        active_sector_codes: set[str] = set()
+        sector_spot_codes: dict[str, list[str]] = {}
+        for raw_spec in args.sector_spec:
+            sector_code, spot_codes = parse_sector_spec(raw_spec)
+            active_sector_codes.add(sector_code)
+            sector_spot_codes.setdefault(sector_code, []).extend(spot_codes)
+
+        for sector_code, spot_codes in sector_spot_codes.items():
+            result = seed_sector_spots(
                 db,
-                zone_code=zone_code,
+                sector_code=sector_code,
                 spot_codes=spot_codes,
                 initial_status=initial_status,
                 arrow_direction=arrow_direction,
@@ -78,7 +81,7 @@ def main() -> None:
                 deactivate_missing_spots=args.deactivate_missing_spots,
             )
             print(
-                f"{zone_code}: "
+                f"{sector_code}: "
                 f"spots={len(spot_codes)} "
                 f"zones_created={result.zones_created} "
                 f"spots_created={result.spots_created} "
@@ -90,15 +93,15 @@ def main() -> None:
         if args.deactivate_other_displays:
             displays_updated = deactivate_unlisted_displays(
                 db,
-                active_zone_codes=active_zone_codes,
+                active_sector_codes=active_sector_codes,
             )
             print(f"displays_updated={displays_updated}")
-        if args.deactivate_other_zone_spots:
-            spots_deactivated = deactivate_unlisted_zone_spots(
+        if args.deactivate_other_sector_spots:
+            spots_deactivated = deactivate_unlisted_sector_spots(
                 db,
-                active_zone_codes=active_zone_codes,
+                active_sector_codes=active_sector_codes,
             )
-            print(f"other_zone_spots_deactivated={spots_deactivated}")
+            print(f"other_sector_spots_deactivated={spots_deactivated}")
 
 
 if __name__ == "__main__":

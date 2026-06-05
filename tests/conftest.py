@@ -27,10 +27,10 @@ def db_session():
 def seed_zone_with_row(
     db,
     *,
-    zone_code: str = "A",
+    sector_code: str = "A",
     row_code: str = "A1",
 ) -> tuple[ParkingSector, ParkingZone]:
-    floor_code = zone_code.split("-", maxsplit=1)[0] if "-" in zone_code else "P1"
+    floor_code = sector_code.split("-", maxsplit=1)[0] if "-" in sector_code else "P1"
     floor = db.query(ParkingFloor).filter_by(code=floor_code).one_or_none()
     if floor is None:
         floor = ParkingFloor(
@@ -44,9 +44,9 @@ def seed_zone_with_row(
 
     sector = ParkingSector(
         floor_id=floor.id,
-        title=f"Sector {zone_code}",
-        code=zone_code,
-        sector_letter=zone_code.split("-", maxsplit=1)[-1],
+        title=f"Sector {sector_code}",
+        code=sector_code,
+        sector_letter=sector_code.split("-", maxsplit=1)[-1],
         sort_order=1,
         is_active=True,
     )

@@ -63,16 +63,16 @@ def expand_spot_range(value: str) -> list[str]:
     ]
 
 
-def parse_zone_spec(value: str) -> tuple[str, list[str]]:
+def parse_sector_spec(value: str) -> tuple[str, list[str]]:
     if "=" not in value:
-        raise ValueError("Zone spec must look like ZONE=SPOT_START..SPOT_END.")
+        raise ValueError("Sector spec must look like SECTOR=SPOT_START..SPOT_END.")
 
-    zone_code, spot_range = value.split("=", maxsplit=1)
-    zone_code = zone_code.strip()
-    if not zone_code:
-        raise ValueError("Zone spec does not include zone code.")
+    sector_code, spot_range = value.split("=", maxsplit=1)
+    sector_code = sector_code.strip()
+    if not sector_code:
+        raise ValueError("Sector spec does not include sector code.")
 
-    return zone_code, expand_spot_range(spot_range.strip())
+    return sector_code, expand_spot_range(spot_range.strip())
 
 
 def seed_sector_display_config(
@@ -129,10 +129,10 @@ def seed_sector_display_config(
     return result
 
 
-def seed_zone_spots(
+def seed_sector_spots(
     db: Session,
     *,
-    zone_code: str,
+    sector_code: str,
     spot_codes: list[str],
     initial_status: SpotStatus = SpotStatus.UNKNOWN,
     arrow_direction: ArrowDirection = ArrowDirection.AHEAD,
@@ -141,13 +141,13 @@ def seed_zone_spots(
 ) -> ParkingMapSeedResult:
     result = ParkingMapSeedResult()
 
-    floor_code, sector_letter = _split_sector_code(zone_code)
+    floor_code, sector_letter = _split_sector_code(sector_code)
     floor = _get_or_create_floor(db, floor_code)
-    sector = _get_or_create_sector(db, floor, zone_code, sector_letter)
+    sector = _get_or_create_sector(db, floor, sector_code, sector_letter)
 
     for spot_code in spot_codes:
         parsed = parse_parking_spot_code(spot_code)
-        row_code = row_code_from_spot_code(spot_code) or zone_code
+        row_code = row_code_from_spot_code(spot_code) or sector_code
         zone_number = parsed.camera_zone_number if parsed is not None else row_code
         zone = db.scalar(
             select(ParkingZone).where(
@@ -194,12 +194,12 @@ def seed_zone_spots(
         )
         result.spots_created += 1
 
-    display_code = f"DISP-{zone_code}"
+    display_code = f"DISP-{sector_code}"
     display = db.scalar(select(GuidanceDisplay).where(GuidanceDisplay.code == display_code))
     if display is None:
         db.add(
             GuidanceDisplay(
-                title=f"Display {zone_code}",
+                title=f"Display {sector_code}",
                 code=display_code,
                 sector_id=sector.id,
                 arrow_direction=arrow_direction.value,
@@ -227,7 +227,7 @@ def seed_zone_spots(
     return result
 
 
-def deactivate_unlisted_displays(db: Session, *, active_zone_codes: set[str]) -> int:
+def deactivate_unlisted_displays(db: Session, *, active_sector_codes: set[str]) -> int:
     displays = db.execute(
         select(GuidanceDisplay, ParkingSector)
         .join(ParkingSector, GuidanceDisplay.sector_id == ParkingSector.id)
@@ -235,7 +235,7 @@ def deactivate_unlisted_displays(db: Session, *, active_zone_codes: set[str]) ->
 
     updated = 0
     for display, sector in displays:
-        should_be_active = sector.code in active_zone_codes
+        should_be_active = sector.code in active_sector_codes
         if display.is_active != should_be_active:
             display.is_active = should_be_active
             updated += 1
@@ -244,7 +244,7 @@ def deactivate_unlisted_displays(db: Session, *, active_zone_codes: set[str]) ->
     return updated
 
 
-def deactivate_unlisted_zone_spots(db: Session, *, active_zone_codes: set[str]) -> int:
+def deactivate_unlisted_sector_spots(db: Session, *, active_sector_codes: set[str]) -> int:
     rows = db.execute(
         select(ParkingSpot, ParkingSector)
         .join(ParkingZone, ParkingSpot.zone_id == ParkingZone.id)
@@ -253,7 +253,7 @@ def deactivate_unlisted_zone_spots(db: Session, *, active_zone_codes: set[str]) 
 
     updated = 0
     for spot, sector in rows:
-        if sector.code not in active_zone_codes and spot.is_active:
+        if sector.code not in active_sector_codes and spot.is_active:
             spot.is_active = False
             updated += 1
 

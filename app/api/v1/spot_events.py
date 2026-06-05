@@ -30,7 +30,7 @@ async def create_spot_event(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
                 f"Spot code '{exc.spot_code}' is ambiguous. "
-                "Provide zone_code or row_code."
+                "Provide sector_code or row_code."
             ),
         ) from exc
     except LookupError as exc:

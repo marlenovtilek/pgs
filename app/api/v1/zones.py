@@ -21,33 +21,33 @@ async def get_zones_summary(
 ) -> ZoneSummaryResponse:
     return ZoneSummaryResponse(items=await list_zone_summary_items_async(db))
 
-@router.get("/zones/{zone_code}/summary", response_model=ZoneSummaryItem)
+@router.get("/zones/{sector_code}/summary", response_model=ZoneSummaryItem)
 async def get_zone_summary(
-    zone_code: str,
+    sector_code: str,
     db: AsyncSession = Depends(get_async_db),
 ) -> ZoneSummaryItem:
-    summary = await get_zone_summary_item_async(db, zone_code)
+    summary = await get_zone_summary_item_async(db, sector_code)
     if summary is None:
-        raise HTTPException(status_code=404, detail="Zone not found.")
+        raise HTTPException(status_code=404, detail="Sector not found.")
 
     return summary
 
-@router.get("/zones/{zone_code}/messages", response_model=DisplayMessageListResponse)
+@router.get("/zones/{sector_code}/messages", response_model=DisplayMessageListResponse)
 async def get_zone_messages(
-    zone_code: str,
+    sector_code: str,
     is_active: bool | None = None,
     db: AsyncSession = Depends(get_async_db),
 ) -> DisplayMessageListResponse:
-    zone = await db.scalar(
-        select(ParkingSector).where(ParkingSector.code == zone_code)
+    sector = await db.scalar(
+        select(ParkingSector).where(ParkingSector.code == sector_code)
     )
-    if zone is None:
-        raise HTTPException(status_code=404, detail="Zone not found.")
+    if sector is None:
+        raise HTTPException(status_code=404, detail="Sector not found.")
 
     return DisplayMessageListResponse(
         items=await list_display_messages_async(
             db,
-            zone_code=zone.code,
+            sector_code=sector.code,
             is_active=is_active,
         )
     )

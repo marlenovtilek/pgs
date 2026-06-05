@@ -8,9 +8,9 @@ from app.models.parking_spot import ParkingSpot
 from app.models.parking_zone import ParkingZone
 from app.services.parking_config import (
     expand_spot_range,
-    parse_zone_spec,
+    parse_sector_spec,
     seed_sector_display_config,
-    seed_zone_spots,
+    seed_sector_spots,
 )
 
 
@@ -35,10 +35,10 @@ def test_expand_spot_range_rejects_mismatched_prefix():
         expand_spot_range("B1-C001..B2-C003")
 
 
-def test_parse_zone_spec_returns_zone_and_spots():
-    zone_code, spot_codes = parse_zone_spec("B1-C=B1-C-01-1..B1-C-01-2")
+def test_parse_sector_spec_returns_sector_and_spots():
+    sector_code, spot_codes = parse_sector_spec("B1-C=B1-C-01-1..B1-C-01-2")
 
-    assert zone_code == "B1-C"
+    assert sector_code == "B1-C"
     assert spot_codes == ["B1-C-01-1", "B1-C-01-2"]
 
 
@@ -75,10 +75,10 @@ def test_seed_sector_display_config_is_idempotent(db_session):
     assert db_session.query(GuidanceDisplay).count() == 3
 
 
-def test_seed_zone_spots_creates_config(db_session):
-    result = seed_zone_spots(
+def test_seed_sector_spots_creates_config(db_session):
+    result = seed_sector_spots(
         db_session,
-        zone_code="B1-C",
+        sector_code="B1-C",
         spot_codes=["B1-C-01-1", "B1-C-01-2"],
         initial_status=SpotStatus.UNKNOWN,
     )
@@ -96,15 +96,15 @@ def test_seed_zone_spots_creates_config(db_session):
     assert display.sector_id == sector.id
 
 
-def test_seed_zone_spots_is_idempotent(db_session):
-    seed_zone_spots(
+def test_seed_sector_spots_is_idempotent(db_session):
+    seed_sector_spots(
         db_session,
-        zone_code="B1-C",
+        sector_code="B1-C",
         spot_codes=["B1-C-01-1", "B1-C-01-2"],
     )
-    result = seed_zone_spots(
+    result = seed_sector_spots(
         db_session,
-        zone_code="B1-C",
+        sector_code="B1-C",
         spot_codes=["B1-C-01-1", "B1-C-01-2"],
     )
 
@@ -117,17 +117,17 @@ def test_seed_zone_spots_is_idempotent(db_session):
     assert db_session.query(GuidanceDisplay).count() == 1
 
 
-def test_seed_zone_spots_can_update_existing_status(db_session):
-    seed_zone_spots(
+def test_seed_sector_spots_can_update_existing_status(db_session):
+    seed_sector_spots(
         db_session,
-        zone_code="B1-C",
+        sector_code="B1-C",
         spot_codes=["B1-C-01-1", "B1-C-01-2"],
         initial_status=SpotStatus.UNKNOWN,
     )
 
-    result = seed_zone_spots(
+    result = seed_sector_spots(
         db_session,
-        zone_code="B1-C",
+        sector_code="B1-C",
         spot_codes=["B1-C-01-1", "B1-C-01-2"],
         initial_status=SpotStatus.FREE,
         update_existing_status=True,

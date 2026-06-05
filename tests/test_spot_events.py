@@ -69,8 +69,8 @@ def test_create_spot_event_is_idempotent_by_dedup_key(db_session):
 
 
 def test_create_spot_event_rejects_ambiguous_spot_code(db_session):
-    _, row_a = seed_zone_with_row(db_session, zone_code="A", row_code="A1")
-    _, row_b = seed_zone_with_row(db_session, zone_code="B", row_code="B1")
+    _, row_a = seed_zone_with_row(db_session, sector_code="A", row_code="A1")
+    _, row_b = seed_zone_with_row(db_session, sector_code="B", row_code="B1")
     seed_spot(db_session, row_a, code="001")
     seed_spot(db_session, row_b, code="001")
     db_session.commit()

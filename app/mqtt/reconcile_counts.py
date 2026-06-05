@@ -28,15 +28,15 @@ async def handle_message(message: MqttMessage) -> None:
                 )
                 if result.pgs_free_spots is None:
                     print(
-                        "zone_missing "
-                        f"zone={result.zone_code} "
+                        "sector_missing "
+                        f"sector={result.sector_code} "
                         f"mqtt_free={result.mqtt_free_spots}"
                     )
                     return
 
                 print(
-                    "zone "
-                    f"zone={result.zone_code} "
+                    "sector "
+                    f"sector={result.sector_code} "
                     f"mqtt_free={result.mqtt_free_spots} "
                     f"pgs_free={result.pgs_free_spots} "
                     f"diff={result.diff} "

@@ -18,7 +18,7 @@ ConfigurableArrowDirection = Annotated[
 
 
 class DisplayItem(BaseModel):
-    zone_code: str
+    sector_code: str
     display_code: str
     display_title: str
     arrow_direction: str
@@ -30,7 +30,7 @@ class DisplayListResponse(BaseModel):
 class DisplaySummaryResponse(BaseModel):
     display_code: str
     display_title: str
-    zone_code: str
+    sector_code: str
     arrow_direction: str
     total_spots: int
     free_spots: int
@@ -43,7 +43,7 @@ class DisplayListSummaryResponse(BaseModel):
 class DisplayCreateRequest(BaseModel):
     title: str
     code: str
-    zone_code: str
+    sector_code: str
     arrow_direction: ConfigurableArrowDirection
     is_active: bool = True
 
@@ -54,7 +54,7 @@ class DisplayUpdateRequest(BaseModel):
 
 class DisplayMessageResponse(BaseModel):
     display_code: str
-    zone_code: str
+    sector_code: str
     arrow_direction: str
     free_spots: int
     parking_symbol: str

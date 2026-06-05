@@ -10,8 +10,8 @@ from app.domain.ports.display import DisplayCommandPort
 from app.models.spot_occupancy_event import SpotOccupancyEvent
 from app.schemas.spot_event import SpotEventRequest, SpotEventResponse
 from app.services.led import (
-    publish_spot_zone_display_messages,
-    publish_spot_zone_display_messages_async,
+    publish_spot_sector_display_messages,
+    publish_spot_sector_display_messages_async,
 )
 from app.services.spots import AmbiguousSpotCodeError, resolve_spot, resolve_spot_async
 
@@ -62,7 +62,7 @@ def process_spot_event(
     spot = resolve_spot(
         db,
         spot_code=request.spot_code,
-        zone_code=request.zone_code,
+        sector_code=request.sector_code,
         row_code=request.row_code,
     )
     if spot is None:
@@ -108,7 +108,7 @@ def process_spot_event(
     led_commands_sent = 0
     if display_port is not None:
         led_commands_sent = asyncio.run(
-            publish_spot_zone_display_messages(
+            publish_spot_sector_display_messages(
                 db,
                 spot_id=spot.id,
                 display_port=display_port,
@@ -136,7 +136,7 @@ async def process_spot_event_async(
     spot = await resolve_spot_async(
         db,
         spot_code=request.spot_code,
-        zone_code=request.zone_code,
+        sector_code=request.sector_code,
         row_code=request.row_code,
     )
     if spot is None:
@@ -181,7 +181,7 @@ async def process_spot_event_async(
 
     led_commands_sent = 0
     if display_port is not None:
-        led_commands_sent = await publish_spot_zone_display_messages_async(
+        led_commands_sent = await publish_spot_sector_display_messages_async(
             db,
             spot_id=spot.id,
             display_port=display_port,

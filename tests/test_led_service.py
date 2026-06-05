@@ -1,12 +1,12 @@
 import asyncio
 
 from app.adapters.led.mock import MockLedDisplayAdapter
-from app.services.led import publish_zone_display_messages
+from app.services.led import publish_sector_display_messages
 
 from tests.conftest import seed_display, seed_spot, seed_zone_with_row
 
 
-def test_publish_zone_display_messages_sends_active_display_commands(db_session):
+def test_publish_sector_display_messages_sends_active_display_commands(db_session):
     zone, row = seed_zone_with_row(db_session)
     seed_spot(db_session, row, code="A-001", status="FREE")
     seed_spot(db_session, row, code="A-002", status="OCCUPIED")
@@ -16,9 +16,9 @@ def test_publish_zone_display_messages_sends_active_display_commands(db_session)
     adapter = MockLedDisplayAdapter()
 
     sent = asyncio.run(
-        publish_zone_display_messages(
+        publish_sector_display_messages(
             db_session,
-            zone_id=zone.id,
+            sector_id=zone.id,
             display_port=adapter,
         )
     )

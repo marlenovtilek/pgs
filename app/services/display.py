@@ -64,7 +64,7 @@ def _build_display_message(
         free_spots,
     ).value
     message = _format_display_message(
-        zone_code=sector.code,
+        sector_code=sector.code,
         arrow_direction=arrow_direction,
         free_spots=free_spots,
     )
@@ -75,7 +75,7 @@ def _build_display_message(
 
     return DisplayMessageResponse(
         display_code=display.code,
-        zone_code=sector.code,
+        sector_code=sector.code,
         arrow_direction=arrow_direction,
         free_spots=free_spots,
         parking_symbol=PARKING_SYMBOL,
@@ -94,14 +94,14 @@ def _format_small_led_display_text(
 
 def _format_display_message(
     *,
-    zone_code: str,
+    sector_code: str,
     arrow_direction: str,
     free_spots: int,
 ) -> str:
-    if FLOOR_SECTOR_ZONE_CODE_PATTERN.match(zone_code) is None:
-        return f"{zone_code} {arrow_direction} {free_spots}"
+    if FLOOR_SECTOR_ZONE_CODE_PATTERN.match(sector_code) is None:
+        return f"{sector_code} {arrow_direction} {free_spots}"
 
-    return f"{zone_code} {free_spots}"
+    return f"{sector_code} {free_spots}"
 
 
 def build_entry_display_message(
@@ -111,7 +111,7 @@ def build_entry_display_message(
     title: str = "Entry Main Display",
     max_lines: int = 4,
 ) -> EntryDisplayMessageResponse:
-    sorted_messages = sorted(messages, key=lambda message: message.zone_code)
+    sorted_messages = sorted(messages, key=lambda message: message.sector_code)
     lines = [message.message for message in sorted_messages[:max_lines]]
     free_spots = sum(message.free_spots for message in sorted_messages)
 
@@ -134,7 +134,7 @@ def get_display_summary_by_display(
     return DisplaySummaryResponse(
         display_code=display.code,
         display_title=display.title,
-        zone_code=sector.code,
+        sector_code=sector.code,
         arrow_direction=display.arrow_direction,
         total_spots=summary["total"],
         free_spots=summary["free"],
@@ -152,7 +152,7 @@ async def get_display_summary_by_display_async(
     return DisplaySummaryResponse(
         display_code=display.code,
         display_title=display.title,
-        zone_code=sector.code,
+        sector_code=sector.code,
         arrow_direction=display.arrow_direction,
         total_spots=summary["total"],
         free_spots=summary["free"],
@@ -241,7 +241,7 @@ async def get_display_message_async(
 def list_display_messages(
     db: Session,
     *,
-    zone_code: str | None = None,
+    sector_code: str | None = None,
     is_active: bool | None = None,
 ) -> list[DisplayMessageResponse]:
     statement = (
@@ -255,8 +255,8 @@ def list_display_messages(
         .order_by(GuidanceDisplay.code)
     )
 
-    if zone_code is not None:
-        statement = statement.where(ParkingSector.code == zone_code)
+    if sector_code is not None:
+        statement = statement.where(ParkingSector.code == sector_code)
 
     if is_active is not None:
         statement = statement.where(GuidanceDisplay.is_active == is_active)
@@ -272,7 +272,7 @@ def list_display_messages(
 async def list_display_messages_async(
     db: AsyncSession,
     *,
-    zone_code: str | None = None,
+    sector_code: str | None = None,
     is_active: bool | None = None,
 ) -> list[DisplayMessageResponse]:
     statement = (
@@ -286,8 +286,8 @@ async def list_display_messages_async(
         .order_by(GuidanceDisplay.code)
     )
 
-    if zone_code is not None:
-        statement = statement.where(ParkingSector.code == zone_code)
+    if sector_code is not None:
+        statement = statement.where(ParkingSector.code == sector_code)
 
     if is_active is not None:
         statement = statement.where(GuidanceDisplay.is_active == is_active)

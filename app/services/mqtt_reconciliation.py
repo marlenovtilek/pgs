@@ -13,8 +13,8 @@ from app.services.zone_summary import (
 
 
 @dataclass(slots=True)
-class ZoneReconciliationResult:
-    zone_code: str
+class SectorReconciliationResult:
+    sector_code: str
     mqtt_free_spots: int
     pgs_free_spots: int | None
     diff: int | None
@@ -56,11 +56,11 @@ def reconcile_zone_free_event(
     *,
     topic: str,
     payload: dict[str, Any],
-) -> ZoneReconciliationResult:
+) -> SectorReconciliationResult:
     topic_zone_id = zone_id_from_topic(topic)
     payload_zone_id = payload.get("zone_id")
-    zone_code = payload_zone_id or topic_zone_id
-    if not isinstance(zone_code, str) or not zone_code:
+    sector_code = payload_zone_id or topic_zone_id
+    if not isinstance(sector_code, str) or not sector_code:
         raise ValueError("MQTT zone free event does not include zone_id.")
 
     if topic_zone_id is not None and payload_zone_id is not None and topic_zone_id != payload_zone_id:
@@ -69,10 +69,10 @@ def reconcile_zone_free_event(
         )
 
     mqtt_free_spots = free_spots_from_payload(payload)
-    summary = get_zone_summary_item(db, zone_code)
+    summary = get_zone_summary_item(db, sector_code)
     if summary is None:
-        return ZoneReconciliationResult(
-            zone_code=zone_code,
+        return SectorReconciliationResult(
+            sector_code=sector_code,
             mqtt_free_spots=mqtt_free_spots,
             pgs_free_spots=None,
             diff=None,
@@ -82,8 +82,8 @@ def reconcile_zone_free_event(
             unknown_spots=None,
         )
 
-    return ZoneReconciliationResult(
-        zone_code=zone_code,
+    return SectorReconciliationResult(
+        sector_code=sector_code,
         mqtt_free_spots=mqtt_free_spots,
         pgs_free_spots=summary.free_spots,
         diff=mqtt_free_spots - summary.free_spots,
@@ -114,11 +114,11 @@ async def reconcile_zone_free_event_async(
     *,
     topic: str,
     payload: dict[str, Any],
-) -> ZoneReconciliationResult:
+) -> SectorReconciliationResult:
     topic_zone_id = zone_id_from_topic(topic)
     payload_zone_id = payload.get("zone_id")
-    zone_code = payload_zone_id or topic_zone_id
-    if not isinstance(zone_code, str) or not zone_code:
+    sector_code = payload_zone_id or topic_zone_id
+    if not isinstance(sector_code, str) or not sector_code:
         raise ValueError("MQTT zone free event does not include zone_id.")
 
     if topic_zone_id is not None and payload_zone_id is not None and topic_zone_id != payload_zone_id:
@@ -127,10 +127,10 @@ async def reconcile_zone_free_event_async(
         )
 
     mqtt_free_spots = free_spots_from_payload(payload)
-    summary = await get_zone_summary_item_async(db, zone_code)
+    summary = await get_zone_summary_item_async(db, sector_code)
     if summary is None:
-        return ZoneReconciliationResult(
-            zone_code=zone_code,
+        return SectorReconciliationResult(
+            sector_code=sector_code,
             mqtt_free_spots=mqtt_free_spots,
             pgs_free_spots=None,
             diff=None,
@@ -140,8 +140,8 @@ async def reconcile_zone_free_event_async(
             unknown_spots=None,
         )
 
-    return ZoneReconciliationResult(
-        zone_code=zone_code,
+    return SectorReconciliationResult(
+        sector_code=sector_code,
         mqtt_free_spots=mqtt_free_spots,
         pgs_free_spots=summary.free_spots,
         diff=mqtt_free_spots - summary.free_spots,

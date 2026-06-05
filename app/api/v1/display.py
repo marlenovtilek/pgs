@@ -28,7 +28,7 @@ router = APIRouter(tags=["display"])
 
 def _display_item_from_row(row) -> DisplayItem:
     return DisplayItem(
-        zone_code=row.zone_code,
+        sector_code=row.sector_code,
         display_code=row.display_code,
         display_title=row.display_title,
         arrow_direction=row.arrow_direction,
@@ -42,12 +42,12 @@ def _display_item_from_row(row) -> DisplayItem:
 )
 async def get_displays(
     db: AsyncSession = Depends(get_async_db),
-    zone_code: str | None = None,
+    sector_code: str | None = None,
     is_active: bool | None = None,
 ) -> DisplayListResponse:
     statement = (
         select(
-            ParkingSector.code.label("zone_code"),
+            ParkingSector.code.label("sector_code"),
             GuidanceDisplay.code.label("display_code"),
             GuidanceDisplay.title.label("display_title"),
             GuidanceDisplay.arrow_direction,
@@ -56,8 +56,8 @@ async def get_displays(
         .join(ParkingSector, GuidanceDisplay.sector_id == ParkingSector.id)
         .order_by(ParkingSector.code, GuidanceDisplay.code)
     )
-    if zone_code is not None:
-        statement = statement.where(ParkingSector.code == zone_code)
+    if sector_code is not None:
+        statement = statement.where(ParkingSector.code == sector_code)
     if is_active is not None:
         statement = statement.where(GuidanceDisplay.is_active == is_active)
 
@@ -71,15 +71,15 @@ async def get_displays(
 )
 async def get_displays_summary(
     db: AsyncSession = Depends(get_async_db),
-    zone_code: str | None = None,
+    sector_code: str | None = None,
 ) -> DisplayListSummaryResponse:
     statement = (
         select(GuidanceDisplay, ParkingSector)
         .join(ParkingSector, GuidanceDisplay.sector_id == ParkingSector.id)
         .order_by(GuidanceDisplay.code)
     )
-    if zone_code is not None:
-        statement = statement.where(ParkingSector.code == zone_code)
+    if sector_code is not None:
+        statement = statement.where(ParkingSector.code == sector_code)
 
     rows = (await db.execute(statement)).all()
     items = [
@@ -95,13 +95,13 @@ async def get_displays_summary(
 )
 async def get_displays_messages(
     db: AsyncSession = Depends(get_async_db),
-    zone_code: str | None = None,
+    sector_code: str | None = None,
     is_active: bool | None = None,
 ) -> DisplayMessageListResponse:
     return DisplayMessageListResponse(
         items=await list_display_messages_async(
             db,
-            zone_code=zone_code,
+            sector_code=sector_code,
             is_active=is_active,
         )
     )
@@ -127,7 +127,7 @@ async def create_display(
     db: AsyncSession = Depends(get_async_db),
 ) -> DisplayItem:
     sector = await db.scalar(
-        select(ParkingSector).where(ParkingSector.code == request.zone_code)
+        select(ParkingSector).where(ParkingSector.code == request.sector_code)
     )
     if sector is None:
         raise HTTPException(status_code=404, detail="Sector not found.")
@@ -151,7 +151,7 @@ async def create_display(
     await db.refresh(display)
 
     return DisplayItem(
-        zone_code=sector.code,
+        sector_code=sector.code,
         display_code=display.code,
         display_title=display.title,
         arrow_direction=display.arrow_direction,
@@ -169,7 +169,7 @@ async def get_display_by_code(
 ) -> DisplayItem:
     statement = (
         select(
-            ParkingSector.code.label("zone_code"),
+            ParkingSector.code.label("sector_code"),
             GuidanceDisplay.code.label("display_code"),
             GuidanceDisplay.title.label("display_title"),
             GuidanceDisplay.arrow_direction,
@@ -239,7 +239,7 @@ async def update_display(
         raise HTTPException(status_code=404, detail="Sector not found.")
 
     return DisplayItem(
-        zone_code=sector.code,
+        sector_code=sector.code,
         display_code=display.code,
         display_title=display.title,
         arrow_direction=display.arrow_direction,

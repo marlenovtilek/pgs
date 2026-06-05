@@ -47,7 +47,7 @@ async def handle_message(
                 print(
                     "auto_created "
                     f"spot_code={request.spot_code} "
-                    f"zone_code={request.zone_code}"
+                    f"sector_code={request.sector_code}"
                 )
 
         try:
@@ -60,7 +60,7 @@ async def handle_message(
             print(
                 "not_found "
                 f"spot_code={request.spot_code} "
-                f"zone_code={request.zone_code} "
+                f"sector_code={request.sector_code} "
                 f"status={request.status.value}"
             )
             return
@@ -68,7 +68,7 @@ async def handle_message(
             print(
                 "ambiguous "
                 f"spot_code={exc.spot_code} "
-                f"zone_code={request.zone_code}"
+                f"sector_code={request.sector_code}"
             )
             return
 

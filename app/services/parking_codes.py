@@ -14,31 +14,26 @@ LEGACY_CAMERA_ZONE_SIZE = 6
 @dataclass(frozen=True, slots=True)
 class ParsedParkingSpotCode:
     level_code: str
-    sector_code: str
+    sector_letter: str
     camera_zone_number: str | None
     spot_number: str
 
     @property
-    def zone_code(self) -> str:
-        return f"{self.level_code}-{self.sector_code}"
+    def sector_code(self) -> str:
+        return f"{self.level_code}-{self.sector_letter}"
 
     @property
     def camera_zone_code(self) -> str:
         if self.camera_zone_number is None:
-            return self.zone_code
-        return f"{self.zone_code}-{self.camera_zone_number}"
-
-    @property
-    def zone_letter(self) -> str:
-        return self.sector_code
-
+            return self.sector_code
+        return f"{self.sector_code}-{self.camera_zone_number}"
 
 def parse_parking_spot_code(spot_code: str) -> ParsedParkingSpotCode | None:
     match = PARKING_SPOT_CODE_PATTERN.match(spot_code)
     if match is not None:
         return ParsedParkingSpotCode(
             level_code=match.group("level"),
-            sector_code=match.group("sector"),
+            sector_letter=match.group("sector"),
             camera_zone_number=match.group("camera_zone"),
             spot_number=match.group("number"),
         )
@@ -56,7 +51,7 @@ def parse_parking_spot_code(spot_code: str) -> ParsedParkingSpotCode | None:
 
     return ParsedParkingSpotCode(
         level_code=legacy_match.group("level"),
-        sector_code=legacy_match.group("zone"),
+        sector_letter=legacy_match.group("zone"),
         camera_zone_number=f"{camera_zone_index:02d}",
         spot_number=str(camera_zone_spot_number),
     )
@@ -66,11 +61,11 @@ def is_new_parking_spot_code(spot_code: str) -> bool:
     return PARKING_SPOT_CODE_PATTERN.match(spot_code) is not None
 
 
-def zone_code_from_spot_code(spot_code: str) -> str | None:
+def sector_code_from_spot_code(spot_code: str) -> str | None:
     parsed = parse_parking_spot_code(spot_code)
     if parsed is None:
         return None
-    return parsed.zone_code
+    return parsed.sector_code
 
 
 def row_code_from_spot_code(spot_code: str) -> str | None:

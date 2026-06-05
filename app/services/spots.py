@@ -27,7 +27,7 @@ class AmbiguousSpotCodeError(Exception):
 def _base_spots_statement():
     return (
         select(
-            ParkingSector.code.label("zone_code"),
+            ParkingSector.code.label("sector_code"),
             ParkingZone.code.label("row_code"),
             ParkingSpot.code.label("spot_code"),
             ParkingSpot.status.label("status"),
@@ -48,7 +48,7 @@ def list_spots(
     db: Session,
     *,
     status: SpotStatus | None = None,
-    zone_code: str | None = None,
+    sector_code: str | None = None,
 ) -> SpotListResponse:
     statement = _base_spots_statement().order_by(
         ParkingZone.code,
@@ -61,14 +61,14 @@ def list_spots(
     if status is not None:
         statement = statement.where(ParkingSpot.status == status.value)
 
-    if zone_code is not None:
-        statement = statement.where(ParkingSector.code == zone_code)
+    if sector_code is not None:
+        statement = statement.where(ParkingSector.code == sector_code)
 
     rows = db.execute(statement).all()
 
     items = [
         SpotListItem(
-            zone_code=row.zone_code,
+            sector_code=row.sector_code,
             row_code=row.row_code,
             spot_code=row.spot_code,
             status=row.status,
@@ -85,7 +85,7 @@ async def list_spots_async(
     db: AsyncSession,
     *,
     status: SpotStatus | None = None,
-    zone_code: str | None = None,
+    sector_code: str | None = None,
 ) -> SpotListResponse:
     statement = _base_spots_statement().order_by(
         ParkingZone.code,
@@ -98,14 +98,14 @@ async def list_spots_async(
     if status is not None:
         statement = statement.where(ParkingSpot.status == status.value)
 
-    if zone_code is not None:
-        statement = statement.where(ParkingSector.code == zone_code)
+    if sector_code is not None:
+        statement = statement.where(ParkingSector.code == sector_code)
 
     rows = (await db.execute(statement)).all()
 
     items = [
         SpotListItem(
-            zone_code=row.zone_code,
+            sector_code=row.sector_code,
             row_code=row.row_code,
             spot_code=row.spot_code,
             status=row.status,
@@ -122,13 +122,13 @@ def get_spot_by_code(
     db: Session,
     spot_code: str,
     *,
-    zone_code: str | None = None,
+    sector_code: str | None = None,
     row_code: str | None = None,
 ) -> SpotDetailResponse | None:
     statement = _base_spots_statement().where(ParkingSpot.code == spot_code)
 
-    if zone_code is not None:
-        statement = statement.where(ParkingSector.code == zone_code)
+    if sector_code is not None:
+        statement = statement.where(ParkingSector.code == sector_code)
 
     if row_code is not None:
         statement = statement.where(ParkingZone.code == row_code)
@@ -142,7 +142,7 @@ def get_spot_by_code(
         return None
 
     return SpotDetailResponse(
-        zone_code=row.zone_code,
+        sector_code=row.sector_code,
         row_code=row.row_code,
         spot_code=row.spot_code,
         status=row.status,
@@ -155,13 +155,13 @@ async def get_spot_by_code_async(
     db: AsyncSession,
     spot_code: str,
     *,
-    zone_code: str | None = None,
+    sector_code: str | None = None,
     row_code: str | None = None,
 ) -> SpotDetailResponse | None:
     statement = _base_spots_statement().where(ParkingSpot.code == spot_code)
 
-    if zone_code is not None:
-        statement = statement.where(ParkingSector.code == zone_code)
+    if sector_code is not None:
+        statement = statement.where(ParkingSector.code == sector_code)
 
     if row_code is not None:
         statement = statement.where(ParkingZone.code == row_code)
@@ -175,7 +175,7 @@ async def get_spot_by_code_async(
         return None
 
     return SpotDetailResponse(
-        zone_code=row.zone_code,
+        sector_code=row.sector_code,
         row_code=row.row_code,
         spot_code=row.spot_code,
         status=row.status,
@@ -188,7 +188,7 @@ def resolve_spot(
     db: Session,
     *,
     spot_code: str,
-    zone_code: str | None = None,
+    sector_code: str | None = None,
     row_code: str | None = None,
 ) -> ParkingSpot | None:
     statement = (
@@ -205,8 +205,8 @@ def resolve_spot(
         )
     )
 
-    if zone_code is not None:
-        statement = statement.where(ParkingSector.code == zone_code)
+    if sector_code is not None:
+        statement = statement.where(ParkingSector.code == sector_code)
 
     if row_code is not None:
         statement = statement.where(ParkingZone.code == row_code)
@@ -232,7 +232,7 @@ async def resolve_spot_async(
     db: AsyncSession,
     *,
     spot_code: str,
-    zone_code: str | None = None,
+    sector_code: str | None = None,
     row_code: str | None = None,
 ) -> ParkingSpot | None:
     statement = (
@@ -249,8 +249,8 @@ async def resolve_spot_async(
         )
     )
 
-    if zone_code is not None:
-        statement = statement.where(ParkingSector.code == zone_code)
+    if sector_code is not None:
+        statement = statement.where(ParkingSector.code == sector_code)
 
     if row_code is not None:
         statement = statement.where(ParkingZone.code == row_code)

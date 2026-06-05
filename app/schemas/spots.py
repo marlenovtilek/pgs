@@ -2,7 +2,7 @@ from pydantic import BaseModel
 
 
 class SpotListItem(BaseModel):
-    zone_code: str
+    sector_code: str
     row_code: str
     spot_code: str
     status: str
@@ -15,7 +15,7 @@ class SpotListResponse(BaseModel):
 
 
 class SpotDetailResponse(BaseModel):
-    zone_code: str
+    sector_code: str
     row_code: str
     spot_code: str
     status: str

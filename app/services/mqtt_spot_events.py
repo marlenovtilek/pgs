@@ -15,7 +15,7 @@ from app.services.parking_codes import (
     is_new_parking_spot_code,
     parse_parking_spot_code,
     row_code_from_spot_code,
-    zone_code_from_spot_code,
+    sector_code_from_spot_code,
 )
 
 
@@ -78,23 +78,23 @@ def build_spot_event_request_from_mqtt(
         raise ValueError("MQTT spot status event does not include string timestamp.")
 
     event_id = f"{spot_id}:{status}:{timestamp}"
-    parsed_zone_code = zone_code_from_spot_code(spot_id)
+    parsed_sector_code = sector_code_from_spot_code(spot_id)
     parsed_row_code = row_code_from_spot_code(spot_id)
     payload_zone_id = payload.get("zone_id")
-    zone_code = payload_zone_id or parsed_zone_code
+    sector_code = payload_zone_id or parsed_sector_code
     row_code = None
     if isinstance(payload_zone_id, str) and parsed_row_code == payload_zone_id:
-        zone_code = parsed_zone_code
+        sector_code = parsed_sector_code
         row_code = parsed_row_code
     elif isinstance(payload_zone_id, str) and _looks_like_camera_zone_code(payload_zone_id):
-        zone_code = _sector_code_from_camera_zone_code(payload_zone_id)
+        sector_code = _sector_code_from_camera_zone_code(payload_zone_id)
         row_code = payload_zone_id
     else:
         row_code = parsed_row_code
 
     return SpotEventRequest(
         spot_code=spot_id,
-        zone_code=zone_code,
+        sector_code=sector_code,
         row_code=row_code,
         status=normalize_mqtt_status(status),
         detected_at=parse_mqtt_timestamp(timestamp),
@@ -110,22 +110,22 @@ def ensure_mqtt_parking_config(
     *,
     create_missing_floor_sector: bool = False,
 ) -> bool:
-    zone_code = request.zone_code
-    if zone_code is None:
-        raise ValueError("Cannot auto-create MQTT spot without zone_code.")
+    sector_code = request.sector_code
+    if sector_code is None:
+        raise ValueError("Cannot auto-create MQTT spot without sector_code.")
 
     created = False
 
     parsed = parse_parking_spot_code(request.spot_code)
-    floor_code, sector_letter = _split_sector_code(zone_code)
+    floor_code, sector_letter = _split_sector_code(sector_code)
     if create_missing_floor_sector:
         floor, floor_created = _ensure_floor(db, floor_code)
-        sector, sector_created = _ensure_sector(db, floor, zone_code, sector_letter)
+        sector, sector_created = _ensure_sector(db, floor, sector_code, sector_letter)
         created = created or floor_created or sector_created
     else:
-        sector = _get_configured_sector(db, zone_code)
+        sector = _get_configured_sector(db, sector_code)
 
-    camera_zone_code = request.row_code or row_code_from_spot_code(request.spot_code) or zone_code
+    camera_zone_code = request.row_code or row_code_from_spot_code(request.spot_code) or sector_code
     camera_zone_number = parsed.camera_zone_number if parsed is not None else camera_zone_code
     zone = db.scalar(select(ParkingZone).where(ParkingZone.code == camera_zone_code))
     if zone is None:
@@ -179,22 +179,22 @@ async def ensure_mqtt_parking_config_async(
     *,
     create_missing_floor_sector: bool = False,
 ) -> bool:
-    zone_code = request.zone_code
-    if zone_code is None:
-        raise ValueError("Cannot auto-create MQTT spot without zone_code.")
+    sector_code = request.sector_code
+    if sector_code is None:
+        raise ValueError("Cannot auto-create MQTT spot without sector_code.")
 
     created = False
 
     parsed = parse_parking_spot_code(request.spot_code)
-    floor_code, sector_letter = _split_sector_code(zone_code)
+    floor_code, sector_letter = _split_sector_code(sector_code)
     if create_missing_floor_sector:
         floor, floor_created = await _ensure_floor_async(db, floor_code)
-        sector, sector_created = await _ensure_sector_async(db, floor, zone_code, sector_letter)
+        sector, sector_created = await _ensure_sector_async(db, floor, sector_code, sector_letter)
         created = created or floor_created or sector_created
     else:
-        sector = await _get_configured_sector_async(db, zone_code)
+        sector = await _get_configured_sector_async(db, sector_code)
 
-    camera_zone_code = request.row_code or row_code_from_spot_code(request.spot_code) or zone_code
+    camera_zone_code = request.row_code or row_code_from_spot_code(request.spot_code) or sector_code
     camera_zone_number = parsed.camera_zone_number if parsed is not None else camera_zone_code
     zone = await db.scalar(select(ParkingZone).where(ParkingZone.code == camera_zone_code))
     if zone is None:
