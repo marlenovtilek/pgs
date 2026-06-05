@@ -1,14 +1,14 @@
 from app.services.zone_summary import get_zone_summary_item, list_zone_summary_items
 
-from tests.conftest import seed_spot, seed_zone_with_row
+from tests.conftest import seed_spot, seed_sector_with_camera_zone
 
 
 def test_get_zone_summary_includes_unknown_and_offline(db_session):
-    _, row = seed_zone_with_row(db_session)
-    seed_spot(db_session, row, code="A-001", status="FREE")
-    seed_spot(db_session, row, code="A-002", status="OCCUPIED")
-    seed_spot(db_session, row, code="A-003", status="OFFLINE")
-    seed_spot(db_session, row, code="A-004", status="UNKNOWN")
+    _, camera_zone = seed_sector_with_camera_zone(db_session)
+    seed_spot(db_session, camera_zone, code="A-001", status="FREE")
+    seed_spot(db_session, camera_zone, code="A-002", status="OCCUPIED")
+    seed_spot(db_session, camera_zone, code="A-003", status="OFFLINE")
+    seed_spot(db_session, camera_zone, code="A-004", status="UNKNOWN")
     db_session.commit()
 
     summary = get_zone_summary_item(db_session, "A")
@@ -22,9 +22,9 @@ def test_get_zone_summary_includes_unknown_and_offline(db_session):
 
 
 def test_get_zones_summary_includes_unknown_and_offline(db_session):
-    _, row = seed_zone_with_row(db_session)
-    seed_spot(db_session, row, code="A-001", status="FREE")
-    seed_spot(db_session, row, code="A-002", status="UNKNOWN")
+    _, camera_zone = seed_sector_with_camera_zone(db_session)
+    seed_spot(db_session, camera_zone, code="A-001", status="FREE")
+    seed_spot(db_session, camera_zone, code="A-002", status="UNKNOWN")
     db_session.commit()
 
     items = list_zone_summary_items(db_session)

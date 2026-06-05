@@ -12,9 +12,9 @@ from app.models.parking_spot import ParkingSpot
 from app.models.parking_zone import ParkingZone
 from app.schemas.spot_event import SpotEventRequest
 from app.services.parking_codes import (
+    camera_zone_code_from_spot_code,
     is_new_parking_spot_code,
     parse_parking_spot_code,
-    row_code_from_spot_code,
     sector_code_from_spot_code,
 )
 
@@ -79,23 +79,23 @@ def build_spot_event_request_from_mqtt(
 
     event_id = f"{spot_id}:{status}:{timestamp}"
     parsed_sector_code = sector_code_from_spot_code(spot_id)
-    parsed_row_code = row_code_from_spot_code(spot_id)
+    parsed_camera_zone_code = camera_zone_code_from_spot_code(spot_id)
     payload_zone_id = payload.get("zone_id")
     sector_code = payload_zone_id or parsed_sector_code
-    row_code = None
-    if isinstance(payload_zone_id, str) and parsed_row_code == payload_zone_id:
+    camera_zone_code = None
+    if isinstance(payload_zone_id, str) and parsed_camera_zone_code == payload_zone_id:
         sector_code = parsed_sector_code
-        row_code = parsed_row_code
+        camera_zone_code = parsed_camera_zone_code
     elif isinstance(payload_zone_id, str) and _looks_like_camera_zone_code(payload_zone_id):
         sector_code = _sector_code_from_camera_zone_code(payload_zone_id)
-        row_code = payload_zone_id
+        camera_zone_code = payload_zone_id
     else:
-        row_code = parsed_row_code
+        camera_zone_code = parsed_camera_zone_code
 
     return SpotEventRequest(
         spot_code=spot_id,
         sector_code=sector_code,
-        row_code=row_code,
+        camera_zone_code=camera_zone_code,
         status=normalize_mqtt_status(status),
         detected_at=parse_mqtt_timestamp(timestamp),
         source="MQTT",
@@ -125,7 +125,7 @@ def ensure_mqtt_parking_config(
     else:
         sector = _get_configured_sector(db, sector_code)
 
-    camera_zone_code = request.row_code or row_code_from_spot_code(request.spot_code) or sector_code
+    camera_zone_code = request.camera_zone_code or camera_zone_code_from_spot_code(request.spot_code) or sector_code
     camera_zone_number = parsed.camera_zone_number if parsed is not None else camera_zone_code
     zone = db.scalar(select(ParkingZone).where(ParkingZone.code == camera_zone_code))
     if zone is None:
@@ -194,7 +194,7 @@ async def ensure_mqtt_parking_config_async(
     else:
         sector = await _get_configured_sector_async(db, sector_code)
 
-    camera_zone_code = request.row_code or row_code_from_spot_code(request.spot_code) or sector_code
+    camera_zone_code = request.camera_zone_code or camera_zone_code_from_spot_code(request.spot_code) or sector_code
     camera_zone_number = parsed.camera_zone_number if parsed is not None else camera_zone_code
     zone = await db.scalar(select(ParkingZone).where(ParkingZone.code == camera_zone_code))
     if zone is None:

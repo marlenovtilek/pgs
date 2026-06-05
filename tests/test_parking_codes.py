@@ -1,7 +1,7 @@
 from app.services.parking_codes import (
     is_new_parking_spot_code,
     parse_parking_spot_code,
-    row_code_from_spot_code,
+    camera_zone_code_from_spot_code,
     sector_code_from_spot_code,
 )
 
@@ -52,8 +52,8 @@ def test_sector_code_from_spot_code_returns_floor_sector():
     assert sector_code_from_spot_code("B2-C-04-2") == "B2-C"
 
 
-def test_row_code_from_spot_code_returns_camera_zone():
-    assert row_code_from_spot_code("B2-C-04-2") == "B2-C-04"
+def test_camera_zone_code_from_spot_code_returns_camera_zone():
+    assert camera_zone_code_from_spot_code("B2-C-04-2") == "B2-C-04"
 
 
 def test_parse_parking_spot_code_rejects_unknown_format():

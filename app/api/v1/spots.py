@@ -31,7 +31,7 @@ async def get_spots(
 async def get_spot(
     spot_code: str,
     sector_code: str | None = None,
-    row_code: str | None = None,
+    camera_zone_code: str | None = None,
     db: AsyncSession = Depends(get_async_db),
 ) -> SpotDetailResponse:
     try:
@@ -39,14 +39,14 @@ async def get_spot(
             db,
             spot_code,
             sector_code=sector_code,
-            row_code=row_code,
+            camera_zone_code=camera_zone_code,
         )
     except AmbiguousSpotCodeError as exc:
         raise HTTPException(
             status_code=http_status.HTTP_409_CONFLICT,
             detail=(
                 f"Spot code '{exc.spot_code}' is ambiguous. "
-                "Provide sector_code or row_code."
+                "Provide sector_code or camera_zone_code."
             ),
         ) from exc
 

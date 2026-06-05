@@ -38,10 +38,6 @@ class ParkingZone(Base):
         "ParkingSpot",
         back_populates="zone",
     )
-    rows: Mapped[list["ParkingRow"]] = relationship(
-        "ParkingRow",
-        back_populates="zone",
-    )
 
     def __repr__(self) -> str:
         return f"<ParkingZone code={self.code} sector_id={self.sector_id}>"

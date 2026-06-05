@@ -28,6 +28,7 @@ class ParsedParkingSpotCode:
             return self.sector_code
         return f"{self.sector_code}-{self.camera_zone_number}"
 
+
 def parse_parking_spot_code(spot_code: str) -> ParsedParkingSpotCode | None:
     match = PARKING_SPOT_CODE_PATTERN.match(spot_code)
     if match is not None:
@@ -68,7 +69,7 @@ def sector_code_from_spot_code(spot_code: str) -> str | None:
     return parsed.sector_code
 
 
-def row_code_from_spot_code(spot_code: str) -> str | None:
+def camera_zone_code_from_spot_code(spot_code: str) -> str | None:
     parsed = parse_parking_spot_code(spot_code)
     if parsed is None:
         return None

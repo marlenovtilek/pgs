@@ -11,7 +11,7 @@ from app.models.parking_floor import ParkingFloor
 from app.models.parking_sector import ParkingSector
 from app.models.parking_spot import ParkingSpot
 from app.models.parking_zone import ParkingZone
-from app.services.parking_codes import parse_parking_spot_code, row_code_from_spot_code
+from app.services.parking_codes import parse_parking_spot_code, camera_zone_code_from_spot_code
 
 
 SPOT_RANGE_PATTERN = re.compile(r"^(?P<prefix>.*?)(?P<number>\d+)$")
@@ -147,21 +147,21 @@ def seed_sector_spots(
 
     for spot_code in spot_codes:
         parsed = parse_parking_spot_code(spot_code)
-        row_code = row_code_from_spot_code(spot_code) or sector_code
-        zone_number = parsed.camera_zone_number if parsed is not None else row_code
+        camera_zone_code = camera_zone_code_from_spot_code(spot_code) or sector_code
+        zone_number = parsed.camera_zone_number if parsed is not None else camera_zone_code
         zone = db.scalar(
             select(ParkingZone).where(
                 ParkingZone.sector_id == sector.id,
-                ParkingZone.code == row_code,
+                ParkingZone.code == camera_zone_code,
             )
         )
         if zone is None:
             zone = ParkingZone(
                 sector_id=sector.id,
-                title=f"Camera Zone {row_code}",
-                code=row_code,
-                zone_number=zone_number or row_code,
-                sort_order=_sort_order_from_spot_code(row_code),
+                title=f"Camera Zone {camera_zone_code}",
+                code=camera_zone_code,
+                zone_number=zone_number or camera_zone_code,
+                sort_order=_sort_order_from_spot_code(camera_zone_code),
                 is_active=True,
             )
             db.add(zone)

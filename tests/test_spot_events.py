@@ -9,12 +9,12 @@ from app.schemas.spot_event import SpotEventRequest
 from app.services.spot_events import process_spot_event
 from app.services.spots import AmbiguousSpotCodeError
 
-from tests.conftest import seed_display, seed_spot, seed_zone_with_row
+from tests.conftest import seed_display, seed_spot, seed_sector_with_camera_zone
 
 
 def test_create_spot_event_updates_spot_and_stores_event(db_session):
-    zone, row = seed_zone_with_row(db_session)
-    spot = seed_spot(db_session, row, code="A-001", status="FREE")
+    zone, camera_zone = seed_sector_with_camera_zone(db_session)
+    spot = seed_spot(db_session, camera_zone, code="A-001", status="FREE")
     seed_display(db_session, zone)
     db_session.commit()
 
@@ -43,8 +43,8 @@ def test_create_spot_event_updates_spot_and_stores_event(db_session):
 
 
 def test_create_spot_event_is_idempotent_by_dedup_key(db_session):
-    zone, row = seed_zone_with_row(db_session)
-    seed_spot(db_session, row, code="A-001", status="FREE")
+    zone, camera_zone = seed_sector_with_camera_zone(db_session)
+    seed_spot(db_session, camera_zone, code="A-001", status="FREE")
     seed_display(db_session, zone)
     db_session.commit()
 
@@ -69,10 +69,10 @@ def test_create_spot_event_is_idempotent_by_dedup_key(db_session):
 
 
 def test_create_spot_event_rejects_ambiguous_spot_code(db_session):
-    _, row_a = seed_zone_with_row(db_session, sector_code="A", row_code="A1")
-    _, row_b = seed_zone_with_row(db_session, sector_code="B", row_code="B1")
-    seed_spot(db_session, row_a, code="001")
-    seed_spot(db_session, row_b, code="001")
+    _, camera_zone_a = seed_sector_with_camera_zone(db_session, sector_code="A", camera_zone_code="A1")
+    _, camera_zone_b = seed_sector_with_camera_zone(db_session, sector_code="B", camera_zone_code="B1")
+    seed_spot(db_session, camera_zone_a, code="001")
+    seed_spot(db_session, camera_zone_b, code="001")
     db_session.commit()
 
     request = SpotEventRequest(

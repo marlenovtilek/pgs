@@ -70,7 +70,7 @@ def test_build_spot_event_request_from_real_mqtt_payload():
     assert request.payload["plate"] == "Z188AW"
 
 
-def test_build_spot_event_request_treats_payload_camera_zone_as_row_code():
+def test_build_spot_event_request_treats_payload_camera_zone_as_camera_zone_code():
     request = build_spot_event_request_from_mqtt(
         topic="parking/spots/B1-A-16-2/status",
         payload={
@@ -83,7 +83,7 @@ def test_build_spot_event_request_treats_payload_camera_zone_as_row_code():
     )
 
     assert request.sector_code == "B1-A"
-    assert request.row_code == "B1-A-16"
+    assert request.camera_zone_code == "B1-A-16"
 
 
 def test_build_spot_event_request_rejects_legacy_spot_format():

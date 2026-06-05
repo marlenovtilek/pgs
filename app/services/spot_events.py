@@ -63,7 +63,7 @@ def process_spot_event(
         db,
         spot_code=request.spot_code,
         sector_code=request.sector_code,
-        row_code=request.row_code,
+        camera_zone_code=request.camera_zone_code,
     )
     if spot is None:
         raise LookupError(request.spot_code)
@@ -137,7 +137,7 @@ async def process_spot_event_async(
         db,
         spot_code=request.spot_code,
         sector_code=request.sector_code,
-        row_code=request.row_code,
+        camera_zone_code=request.camera_zone_code,
     )
     if spot is None:
         raise LookupError(request.spot_code)

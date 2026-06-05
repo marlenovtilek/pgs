@@ -7,6 +7,6 @@ from app.domain.value_objects.spot_status import SpotStatus
 class ParkingSpotEntity:
     spot_id: str
     sector_code: str
-    row_code: str | None
+    camera_zone_code: str | None
     status: SpotStatus
     plate_number: str | None = None

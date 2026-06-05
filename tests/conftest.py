@@ -24,11 +24,11 @@ def db_session():
     Base.metadata.drop_all(engine)
 
 
-def seed_zone_with_row(
+def seed_sector_with_camera_zone(
     db,
     *,
     sector_code: str = "A",
-    row_code: str = "A1",
+    camera_zone_code: str = "A1",
 ) -> tuple[ParkingSector, ParkingZone]:
     floor_code = sector_code.split("-", maxsplit=1)[0] if "-" in sector_code else "P1"
     floor = db.query(ParkingFloor).filter_by(code=floor_code).one_or_none()
@@ -55,9 +55,9 @@ def seed_zone_with_row(
 
     zone = ParkingZone(
         sector_id=sector.id,
-        title=f"Camera Zone {row_code}",
-        code=row_code,
-        zone_number=row_code.rsplit("-", maxsplit=1)[-1],
+        title=f"Camera Zone {camera_zone_code}",
+        code=camera_zone_code,
+        zone_number=camera_zone_code.rsplit("-", maxsplit=1)[-1],
         sort_order=1,
         is_active=True,
     )
@@ -69,14 +69,14 @@ def seed_zone_with_row(
 
 def seed_spot(
     db,
-    row: ParkingZone,
+    camera_zone: ParkingZone,
     *,
     code: str,
     status: str = "FREE",
     sort_order: int = 1,
 ) -> ParkingSpot:
     spot = ParkingSpot(
-        zone_id=row.id,
+        zone_id=camera_zone.id,
         code=code,
         status=status,
         sort_order=sort_order,
