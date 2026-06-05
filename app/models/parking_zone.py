@@ -1,16 +1,23 @@
-from sqlalchemy import Boolean, DateTime, String, func
-from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
+from html import escape
+
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
 class ParkingZone(Base):
     __tablename__ = "parking_zones"
+    __table_args__ = (
+        UniqueConstraint("sector_id", "code", name="uq_parking_zones_sector_code"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    sector_id: Mapped[int] = mapped_column(ForeignKey("parking_sectors.id"), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     code: Mapped[str] = mapped_column(String(50), nullable=False, unique=True, index=True)
-    level: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    zone_number: Mapped[str] = mapped_column(String(20), nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), 
@@ -23,7 +30,28 @@ class ParkingZone(Base):
         onupdate=func.now(),
         nullable=False,
     )
+    sector: Mapped["ParkingSector"] = relationship(
+        "ParkingSector",
+        back_populates="zones",
+    )
+    spots: Mapped[list["ParkingSpot"]] = relationship(
+        "ParkingSpot",
+        back_populates="zone",
+    )
+    rows: Mapped[list["ParkingRow"]] = relationship(
+        "ParkingRow",
+        back_populates="zone",
+    )
 
     def __repr__(self) -> str:
-        return f"<ParkingZone code={self.code} title={self.title}>"
+        return f"<ParkingZone code={self.code} sector_id={self.sector_id}>"
+
+    def __str__(self) -> str:
+        return self.code
+
+    def __admin_repr__(self, request) -> str:
+        return self.code
+
+    def __admin_select2_repr__(self, request) -> str:
+        return escape(self.code)
     

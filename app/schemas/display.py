@@ -1,6 +1,20 @@
-from pydantic import BaseModel
+from typing import Annotated
 
-from app.domain.value_objects.arrow_direction import ArrowDirection
+from pydantic import AfterValidator, BaseModel
+
+from app.domain.value_objects.arrow_direction import ArrowDirection, is_configurable_arrow_direction
+
+
+def validate_configurable_arrow_direction(value: ArrowDirection) -> ArrowDirection:
+    if not is_configurable_arrow_direction(value.value):
+        raise ValueError("FULL is a system state and cannot be configured manually.")
+    return value
+
+
+ConfigurableArrowDirection = Annotated[
+    ArrowDirection,
+    AfterValidator(validate_configurable_arrow_direction),
+]
 
 
 class DisplayItem(BaseModel):
@@ -30,12 +44,12 @@ class DisplayCreateRequest(BaseModel):
     title: str
     code: str
     zone_code: str
-    arrow_direction: ArrowDirection
+    arrow_direction: ConfigurableArrowDirection
     is_active: bool = True
 
 class DisplayUpdateRequest(BaseModel):
     title: str | None = None
-    arrow_direction: ArrowDirection | None = None
+    arrow_direction: ConfigurableArrowDirection | None = None
     is_active: bool | None = None
 
 class DisplayMessageResponse(BaseModel):
@@ -43,7 +57,17 @@ class DisplayMessageResponse(BaseModel):
     zone_code: str
     arrow_direction: str
     free_spots: int
+    parking_symbol: str
+    display_text: str
     message: str
 
 class DisplayMessageListResponse(BaseModel):
     items: list[DisplayMessageResponse]
+
+
+class EntryDisplayMessageResponse(BaseModel):
+    display_code: str
+    title: str
+    lines: list[str]
+    free_spots: int
+    message: str

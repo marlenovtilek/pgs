@@ -26,4 +26,6 @@ def test_publish_zone_display_messages_sends_active_display_commands(db_session)
     assert sent == 1
     assert len(adapter.commands) == 1
     assert adapter.commands[0].display_code == "ACTIVE"
+    assert adapter.commands[0].parking_symbol == "P"
+    assert adapter.commands[0].display_text == "LEFT 1 P"
     assert adapter.commands[0].message == "A LEFT 1"

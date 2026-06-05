@@ -6,15 +6,18 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
-class ParkingRow(Base):
-    __tablename__ = "parking_rows"
+
+class ParkingSector(Base):
+    __tablename__ = "parking_sectors"
     __table_args__ = (
-        UniqueConstraint("zone_id", "code", name="uq_parking_rows_zone_code"),
+        UniqueConstraint("floor_id", "code", name="uq_parking_sectors_floor_code"),
     )
+
     id: Mapped[int] = mapped_column(primary_key=True)
-    zone_id: Mapped[int] = mapped_column(ForeignKey("parking_zones.id"), nullable=False, index=True)
+    floor_id: Mapped[int] = mapped_column(ForeignKey("parking_floors.id"), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
-    code: Mapped[str] = mapped_column(String(50), nullable=False)
+    code: Mapped[str] = mapped_column(String(50), nullable=False, unique=True, index=True)
+    sector_letter: Mapped[str] = mapped_column(String(20), nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -28,13 +31,21 @@ class ParkingRow(Base):
         onupdate=func.now(),
         nullable=False,
     )
-    zone: Mapped["ParkingZone"] = relationship(
+    floor: Mapped["ParkingFloor"] = relationship(
+        "ParkingFloor",
+        back_populates="sectors",
+    )
+    zones: Mapped[list["ParkingZone"]] = relationship(
         "ParkingZone",
-        back_populates="rows",
+        back_populates="sector",
+    )
+    displays: Mapped[list["GuidanceDisplay"]] = relationship(
+        "GuidanceDisplay",
+        back_populates="sector",
     )
 
     def __repr__(self) -> str:
-        return f"<ParkingRow zone_id={self.zone_id} code={self.code} title={self.title}>"
+        return f"<ParkingSector code={self.code} floor_id={self.floor_id}>"
 
     def __str__(self) -> str:
         return self.code
@@ -44,5 +55,3 @@ class ParkingRow(Base):
 
     def __admin_select2_repr__(self, request) -> str:
         return escape(self.code)
-    
-    

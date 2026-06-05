@@ -13,7 +13,12 @@ from app.services.mqtt_spot_events import (
 from app.services.spot_events import AmbiguousSpotCodeError, process_spot_event_async
 
 
-async def handle_message(message: MqttMessage, *, auto_create: bool = False) -> None:
+async def handle_message(
+    message: MqttMessage,
+    *,
+    auto_create: bool = False,
+    auto_create_floor_sector: bool = False,
+) -> None:
     if not isinstance(message.payload, dict):
         print(f"ignored non-json topic={message.topic} payload={message.raw_payload}")
         return
@@ -30,7 +35,11 @@ async def handle_message(message: MqttMessage, *, auto_create: bool = False) -> 
     async with AsyncSessionLocal() as db:
         if auto_create:
             try:
-                created = await ensure_mqtt_parking_config_async(db, request)
+                created = await ensure_mqtt_parking_config_async(
+                    db,
+                    request,
+                    create_missing_floor_sector=auto_create_floor_sector,
+                )
             except ValueError as exc:
                 print(f"auto_create_failed spot_code={request.spot_code} error={exc}")
                 return
@@ -83,7 +92,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--auto-create",
         action="store_true",
-        help="Create missing zone/row/spot/display records from MQTT payloads.",
+        help="Create missing camera zones and spots for sectors that already exist in PGS.",
+    )
+    parser.add_argument(
+        "--auto-create-floor-sector",
+        action="store_true",
+        help="Development-only: also create missing floors and sectors from MQTT payloads.",
     )
     return parser.parse_args()
 
@@ -106,7 +120,11 @@ async def main_async() -> None:
                 password=settings.mqtt_password,
             ) as subscriber:
                 async for message in subscriber.messages():
-                    await handle_message(message, auto_create=args.auto_create)
+                    await handle_message(
+                        message,
+                        auto_create=args.auto_create,
+                        auto_create_floor_sector=args.auto_create_floor_sector,
+                    )
         except OSError as exc:
             print(
                 f"MQTT connection unavailable: {args.host}:{args.port} "

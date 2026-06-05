@@ -3,8 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from app.domain.ports.display import DisplayCommandPort
-from app.models.parking_row import ParkingRow
 from app.models.parking_spot import ParkingSpot
+from app.models.parking_sector import ParkingSector
 from app.models.parking_zone import ParkingZone
 from app.services.display import list_display_messages, list_display_messages_async
 
@@ -15,7 +15,7 @@ async def publish_zone_display_messages(
     zone_id: int,
     display_port: DisplayCommandPort,
 ) -> int:
-    zone_code = db.scalar(select(ParkingZone.code).where(ParkingZone.id == zone_id))
+    zone_code = db.scalar(select(ParkingSector.code).where(ParkingSector.id == zone_id))
     if zone_code is None:
         return 0
 
@@ -31,6 +31,8 @@ async def publish_zone_display_messages(
             zone_code=message.zone_code,
             free_spots=message.free_spots,
             arrow_direction=message.arrow_direction,
+            parking_symbol=message.parking_symbol,
+            display_text=message.display_text,
             message=message.message,
         )
 
@@ -44,8 +46,8 @@ async def publish_spot_zone_display_messages(
     display_port: DisplayCommandPort,
 ) -> int:
     zone_id = db.scalar(
-        select(ParkingRow.zone_id)
-        .join(ParkingSpot, ParkingSpot.row_id == ParkingRow.id)
+        select(ParkingZone.sector_id)
+        .join(ParkingSpot, ParkingSpot.zone_id == ParkingZone.id)
         .where(ParkingSpot.id == spot_id)
     )
     if zone_id is None:
@@ -64,7 +66,7 @@ async def publish_zone_display_messages_async(
     zone_id: int,
     display_port: DisplayCommandPort,
 ) -> int:
-    zone_code = await db.scalar(select(ParkingZone.code).where(ParkingZone.id == zone_id))
+    zone_code = await db.scalar(select(ParkingSector.code).where(ParkingSector.id == zone_id))
     if zone_code is None:
         return 0
 
@@ -80,6 +82,8 @@ async def publish_zone_display_messages_async(
             zone_code=message.zone_code,
             free_spots=message.free_spots,
             arrow_direction=message.arrow_direction,
+            parking_symbol=message.parking_symbol,
+            display_text=message.display_text,
             message=message.message,
         )
 
@@ -93,8 +97,8 @@ async def publish_spot_zone_display_messages_async(
     display_port: DisplayCommandPort,
 ) -> int:
     zone_id = await db.scalar(
-        select(ParkingRow.zone_id)
-        .join(ParkingSpot, ParkingSpot.row_id == ParkingRow.id)
+        select(ParkingZone.sector_id)
+        .join(ParkingSpot, ParkingSpot.zone_id == ParkingZone.id)
         .where(ParkingSpot.id == spot_id)
     )
     if zone_id is None:

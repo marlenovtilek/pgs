@@ -38,7 +38,8 @@ def test_create_spot_event_updates_spot_and_stores_event(db_session):
     assert event is not None
     assert event.spot_id == spot.id
     assert result.led_commands_sent == 1
-    assert adapter.commands[0].message == "A FULL 0"
+    assert adapter.commands[0].message == "A AHEAD 0"
+    assert adapter.commands[0].display_text == "AHEAD 0 P"
 
 
 def test_create_spot_event_is_idempotent_by_dedup_key(db_session):

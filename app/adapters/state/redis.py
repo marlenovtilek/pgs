@@ -1,1 +1,0 @@
-"""Redis state adapter placeholder."""

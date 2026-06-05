@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.async_database import get_async_db
-from app.models.parking_zone import ParkingZone
+from app.models.parking_sector import ParkingSector
 from app.schemas.display import DisplayMessageListResponse
 from app.schemas.zone_summary import ZoneSummaryItem, ZoneSummaryResponse
 from app.services.display import list_display_messages_async
@@ -39,7 +39,7 @@ async def get_zone_messages(
     db: AsyncSession = Depends(get_async_db),
 ) -> DisplayMessageListResponse:
     zone = await db.scalar(
-        select(ParkingZone).where(ParkingZone.code == zone_code)
+        select(ParkingSector).where(ParkingSector.code == zone_code)
     )
     if zone is None:
         raise HTTPException(status_code=404, detail="Zone not found.")

@@ -37,6 +37,8 @@ services:
         condition: service_healthy
       pgs-migrate:
         condition: service_completed_successfully
+      pgs-bootstrap:
+        condition: service_completed_successfully
     networks:
       - default
       - smartparking_db_network
@@ -60,10 +62,33 @@ services:
         condition: service_healthy
       pgs-migrate:
         condition: service_completed_successfully
+      pgs-bootstrap:
+        condition: service_completed_successfully
     networks:
       - default
       - smartparking_db_network
     restart: unless-stopped
+
+  pgs-bootstrap:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pgs-bootstrap
+    working_dir: /app
+    command: python -m app.simulation.bootstrap_parking_config
+    volumes:
+      - ./app:/app/app
+      - ./migrations:/app/migrations
+      - ./alembic.ini:/app/alembic.ini
+    env_file:
+      - .env
+    depends_on:
+      pgs-db:
+        condition: service_healthy
+      pgs-migrate:
+        condition: service_completed_successfully
+    networks:
+      - default
 
   pgs-db:
     image: postgres:16

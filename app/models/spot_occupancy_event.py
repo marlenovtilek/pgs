@@ -1,7 +1,8 @@
 from datetime import datetime
+from html import escape
 
 from sqlalchemy import DateTime, ForeignKey, JSON, String, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
@@ -22,6 +23,19 @@ class SpotOccupancyEvent(Base):
         server_default=func.now(),
         nullable=False,
     )
+    spot: Mapped["ParkingSpot"] = relationship(
+        "ParkingSpot",
+        back_populates="events",
+    )
 
     def __repr__(self) -> str:
         return f"<SpotOccupancyEvent spot_id={self.spot_id} status={self.status}>"
+
+    def __str__(self) -> str:
+        return f"{self.spot_id} {self.status} {self.detected_at.isoformat()}"
+
+    def __admin_repr__(self, request) -> str:
+        return f"{self.spot_id} {self.status}"
+
+    def __admin_select2_repr__(self, request) -> str:
+        return escape(self.__admin_repr__(request))

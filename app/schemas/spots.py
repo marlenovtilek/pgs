@@ -7,6 +7,7 @@ class SpotListItem(BaseModel):
     spot_code: str
     status: str
     is_active: bool
+    is_disabled: bool = False
 
 
 class SpotListResponse(BaseModel):
@@ -19,3 +20,4 @@ class SpotDetailResponse(BaseModel):
     spot_code: str
     status: str
     is_active: bool
+    is_disabled: bool = False

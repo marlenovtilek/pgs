@@ -3,10 +3,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from app.domain.value_objects.spot_status import SpotStatus
-from app.models.parking_row import ParkingRow
+from app.models.parking_floor import ParkingFloor
+from app.models.parking_sector import ParkingSector
 from app.models.parking_spot import ParkingSpot
 from app.models.parking_zone import ParkingZone
 from app.schemas.spots import SpotDetailResponse, SpotListItem, SpotListResponse
+
+
+DISABLED_SPOT_CODES = {
+    *{f"B1-B{number:03d}" for number in range(1, 11)},
+    *{f"B1-B-{number:03d}" for number in range(1, 11)},
+    *{f"B1-B-01-{number}" for number in range(1, 7)},
+    *{f"B1-B-02-{number}" for number in range(1, 5)},
+}
 
 
 class AmbiguousSpotCodeError(Exception):
@@ -18,14 +27,20 @@ class AmbiguousSpotCodeError(Exception):
 def _base_spots_statement():
     return (
         select(
-            ParkingZone.code.label("zone_code"),
-            ParkingRow.code.label("row_code"),
+            ParkingSector.code.label("zone_code"),
+            ParkingZone.code.label("row_code"),
             ParkingSpot.code.label("spot_code"),
             ParkingSpot.status.label("status"),
             ParkingSpot.is_active.label("is_active"),
         )
-        .join(ParkingRow, ParkingSpot.row_id == ParkingRow.id)
-        .join(ParkingZone, ParkingRow.zone_id == ParkingZone.id)
+        .join(ParkingZone, ParkingSpot.zone_id == ParkingZone.id)
+        .join(ParkingSector, ParkingZone.sector_id == ParkingSector.id)
+        .join(ParkingFloor, ParkingSector.floor_id == ParkingFloor.id)
+        .where(
+            ParkingFloor.is_active.is_(True),
+            ParkingSector.is_active.is_(True),
+            ParkingZone.is_active.is_(True),
+        )
     )
 
 
@@ -37,7 +52,8 @@ def list_spots(
 ) -> SpotListResponse:
     statement = _base_spots_statement().order_by(
         ParkingZone.code,
-        ParkingRow.code,
+        ParkingSector.code,
+        ParkingZone.code,
         ParkingSpot.sort_order,
         ParkingSpot.code,
     )
@@ -46,7 +62,7 @@ def list_spots(
         statement = statement.where(ParkingSpot.status == status.value)
 
     if zone_code is not None:
-        statement = statement.where(ParkingZone.code == zone_code)
+        statement = statement.where(ParkingSector.code == zone_code)
 
     rows = db.execute(statement).all()
 
@@ -57,6 +73,7 @@ def list_spots(
             spot_code=row.spot_code,
             status=row.status,
             is_active=row.is_active,
+            is_disabled=_is_disabled_spot(row.spot_code),
         )
         for row in rows
     ]
@@ -72,7 +89,8 @@ async def list_spots_async(
 ) -> SpotListResponse:
     statement = _base_spots_statement().order_by(
         ParkingZone.code,
-        ParkingRow.code,
+        ParkingSector.code,
+        ParkingZone.code,
         ParkingSpot.sort_order,
         ParkingSpot.code,
     )
@@ -81,7 +99,7 @@ async def list_spots_async(
         statement = statement.where(ParkingSpot.status == status.value)
 
     if zone_code is not None:
-        statement = statement.where(ParkingZone.code == zone_code)
+        statement = statement.where(ParkingSector.code == zone_code)
 
     rows = (await db.execute(statement)).all()
 
@@ -92,6 +110,7 @@ async def list_spots_async(
             spot_code=row.spot_code,
             status=row.status,
             is_active=row.is_active,
+            is_disabled=_is_disabled_spot(row.spot_code),
         )
         for row in rows
     ]
@@ -109,10 +128,10 @@ def get_spot_by_code(
     statement = _base_spots_statement().where(ParkingSpot.code == spot_code)
 
     if zone_code is not None:
-        statement = statement.where(ParkingZone.code == zone_code)
+        statement = statement.where(ParkingSector.code == zone_code)
 
     if row_code is not None:
-        statement = statement.where(ParkingRow.code == row_code)
+        statement = statement.where(ParkingZone.code == row_code)
 
     rows = db.execute(statement).all()
     if len(rows) > 1:
@@ -128,6 +147,7 @@ def get_spot_by_code(
         spot_code=row.spot_code,
         status=row.status,
         is_active=row.is_active,
+        is_disabled=_is_disabled_spot(row.spot_code),
     )
 
 
@@ -141,10 +161,10 @@ async def get_spot_by_code_async(
     statement = _base_spots_statement().where(ParkingSpot.code == spot_code)
 
     if zone_code is not None:
-        statement = statement.where(ParkingZone.code == zone_code)
+        statement = statement.where(ParkingSector.code == zone_code)
 
     if row_code is not None:
-        statement = statement.where(ParkingRow.code == row_code)
+        statement = statement.where(ParkingZone.code == row_code)
 
     rows = (await db.execute(statement)).all()
     if len(rows) > 1:
@@ -160,6 +180,7 @@ async def get_spot_by_code_async(
         spot_code=row.spot_code,
         status=row.status,
         is_active=row.is_active,
+        is_disabled=_is_disabled_spot(row.spot_code),
     )
 
 
@@ -172,25 +193,39 @@ def resolve_spot(
 ) -> ParkingSpot | None:
     statement = (
         select(ParkingSpot)
-        .join(ParkingRow, ParkingSpot.row_id == ParkingRow.id)
-        .join(ParkingZone, ParkingRow.zone_id == ParkingZone.id)
-        .where(ParkingSpot.code == spot_code)
+        .join(ParkingZone, ParkingSpot.zone_id == ParkingZone.id)
+        .join(ParkingSector, ParkingZone.sector_id == ParkingSector.id)
+        .join(ParkingFloor, ParkingSector.floor_id == ParkingFloor.id)
+        .where(
+            ParkingSpot.code == spot_code,
+            ParkingSpot.is_active.is_(True),
+            ParkingZone.is_active.is_(True),
+            ParkingSector.is_active.is_(True),
+            ParkingFloor.is_active.is_(True),
+        )
     )
 
     if zone_code is not None:
-        statement = statement.where(ParkingZone.code == zone_code)
+        statement = statement.where(ParkingSector.code == zone_code)
 
     if row_code is not None:
-        statement = statement.where(ParkingRow.code == row_code)
+        statement = statement.where(ParkingZone.code == row_code)
 
+    statement = statement.order_by(ParkingSpot.is_active.desc(), ParkingSpot.id.desc())
     spots = db.scalars(statement).all()
     if len(spots) > 1:
+        if row_code is not None:
+            return spots[0]
         raise AmbiguousSpotCodeError(spot_code)
 
     if not spots:
         return None
 
     return spots[0]
+
+
+def _is_disabled_spot(spot_code: str) -> bool:
+    return spot_code in DISABLED_SPOT_CODES
 
 
 async def resolve_spot_async(
@@ -202,19 +237,29 @@ async def resolve_spot_async(
 ) -> ParkingSpot | None:
     statement = (
         select(ParkingSpot)
-        .join(ParkingRow, ParkingSpot.row_id == ParkingRow.id)
-        .join(ParkingZone, ParkingRow.zone_id == ParkingZone.id)
-        .where(ParkingSpot.code == spot_code)
+        .join(ParkingZone, ParkingSpot.zone_id == ParkingZone.id)
+        .join(ParkingSector, ParkingZone.sector_id == ParkingSector.id)
+        .join(ParkingFloor, ParkingSector.floor_id == ParkingFloor.id)
+        .where(
+            ParkingSpot.code == spot_code,
+            ParkingSpot.is_active.is_(True),
+            ParkingZone.is_active.is_(True),
+            ParkingSector.is_active.is_(True),
+            ParkingFloor.is_active.is_(True),
+        )
     )
 
     if zone_code is not None:
-        statement = statement.where(ParkingZone.code == zone_code)
+        statement = statement.where(ParkingSector.code == zone_code)
 
     if row_code is not None:
-        statement = statement.where(ParkingRow.code == row_code)
+        statement = statement.where(ParkingZone.code == row_code)
 
+    statement = statement.order_by(ParkingSpot.is_active.desc(), ParkingSpot.id.desc())
     spots = (await db.scalars(statement)).all()
     if len(spots) > 1:
+        if row_code is not None:
+            return spots[0]
         raise AmbiguousSpotCodeError(spot_code)
 
     if not spots:

@@ -1,21 +1,19 @@
 from datetime import datetime
 from html import escape
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
-class ParkingRow(Base):
-    __tablename__ = "parking_rows"
-    __table_args__ = (
-        UniqueConstraint("zone_id", "code", name="uq_parking_rows_zone_code"),
-    )
+
+class ParkingFloor(Base):
+    __tablename__ = "parking_floors"
+
     id: Mapped[int] = mapped_column(primary_key=True)
-    zone_id: Mapped[int] = mapped_column(ForeignKey("parking_zones.id"), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
-    code: Mapped[str] = mapped_column(String(50), nullable=False)
-    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    code: Mapped[str] = mapped_column(String(50), nullable=False, unique=True, index=True)
+    sort_order: Mapped[int] = mapped_column(default=0, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -28,13 +26,13 @@ class ParkingRow(Base):
         onupdate=func.now(),
         nullable=False,
     )
-    zone: Mapped["ParkingZone"] = relationship(
-        "ParkingZone",
-        back_populates="rows",
+    sectors: Mapped[list["ParkingSector"]] = relationship(
+        "ParkingSector",
+        back_populates="floor",
     )
 
     def __repr__(self) -> str:
-        return f"<ParkingRow zone_id={self.zone_id} code={self.code} title={self.title}>"
+        return f"<ParkingFloor code={self.code} title={self.title}>"
 
     def __str__(self) -> str:
         return self.code
@@ -44,5 +42,3 @@ class ParkingRow(Base):
 
     def __admin_select2_repr__(self, request) -> str:
         return escape(self.code)
-    
-    

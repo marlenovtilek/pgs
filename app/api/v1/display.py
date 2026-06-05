@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.async_database import get_async_db
 from app.models.guidance_display import GuidanceDisplay
-from app.models.parking_zone import ParkingZone
+from app.models.parking_sector import ParkingSector
 from app.schemas.display import (
     DisplayCreateRequest,
     DisplayItem,
@@ -14,8 +14,10 @@ from app.schemas.display import (
     DisplayMessageResponse,
     DisplaySummaryResponse,
     DisplayUpdateRequest,
+    EntryDisplayMessageResponse,
 )
 from app.services.display import (
+    get_entry_display_message_async,
     get_display_message_async as build_display_message,
     get_display_summary_by_display_async,
     list_display_messages_async,
@@ -45,17 +47,17 @@ async def get_displays(
 ) -> DisplayListResponse:
     statement = (
         select(
-            ParkingZone.code.label("zone_code"),
+            ParkingSector.code.label("zone_code"),
             GuidanceDisplay.code.label("display_code"),
             GuidanceDisplay.title.label("display_title"),
             GuidanceDisplay.arrow_direction,
             GuidanceDisplay.is_active,
         )
-        .join(ParkingZone, GuidanceDisplay.zone_id == ParkingZone.id)
-        .order_by(ParkingZone.code, GuidanceDisplay.code)
+        .join(ParkingSector, GuidanceDisplay.sector_id == ParkingSector.id)
+        .order_by(ParkingSector.code, GuidanceDisplay.code)
     )
     if zone_code is not None:
-        statement = statement.where(ParkingZone.code == zone_code)
+        statement = statement.where(ParkingSector.code == zone_code)
     if is_active is not None:
         statement = statement.where(GuidanceDisplay.is_active == is_active)
 
@@ -72,12 +74,12 @@ async def get_displays_summary(
     zone_code: str | None = None,
 ) -> DisplayListSummaryResponse:
     statement = (
-        select(GuidanceDisplay, ParkingZone)
-        .join(ParkingZone, GuidanceDisplay.zone_id == ParkingZone.id)
+        select(GuidanceDisplay, ParkingSector)
+        .join(ParkingSector, GuidanceDisplay.sector_id == ParkingSector.id)
         .order_by(GuidanceDisplay.code)
     )
     if zone_code is not None:
-        statement = statement.where(ParkingZone.code == zone_code)
+        statement = statement.where(ParkingSector.code == zone_code)
 
     rows = (await db.execute(statement)).all()
     items = [
@@ -105,6 +107,17 @@ async def get_displays_messages(
     )
 
 
+@router.get(
+    "/displays/entry-message",
+    response_model=EntryDisplayMessageResponse,
+)
+async def get_entry_display_message(
+    db: AsyncSession = Depends(get_async_db),
+    max_lines: int = 4,
+) -> EntryDisplayMessageResponse:
+    return await get_entry_display_message_async(db, max_lines=max_lines)
+
+
 @router.post(
     "/displays",
     response_model=DisplayItem,
@@ -113,11 +126,11 @@ async def create_display(
     request: DisplayCreateRequest,
     db: AsyncSession = Depends(get_async_db),
 ) -> DisplayItem:
-    zone = await db.scalar(
-        select(ParkingZone).where(ParkingZone.code == request.zone_code)
+    sector = await db.scalar(
+        select(ParkingSector).where(ParkingSector.code == request.zone_code)
     )
-    if zone is None:
-        raise HTTPException(status_code=404, detail="Zone not found.")
+    if sector is None:
+        raise HTTPException(status_code=404, detail="Sector not found.")
 
     existing_display = await db.scalar(
         select(GuidanceDisplay).where(GuidanceDisplay.code == request.code)
@@ -128,7 +141,7 @@ async def create_display(
     display = GuidanceDisplay(
         title=request.title,
         code=request.code,
-        zone_id=zone.id,
+        sector_id=sector.id,
         arrow_direction=request.arrow_direction.value,
         is_active=request.is_active,
     )
@@ -138,7 +151,7 @@ async def create_display(
     await db.refresh(display)
 
     return DisplayItem(
-        zone_code=zone.code,
+        zone_code=sector.code,
         display_code=display.code,
         display_title=display.title,
         arrow_direction=display.arrow_direction,
@@ -156,13 +169,13 @@ async def get_display_by_code(
 ) -> DisplayItem:
     statement = (
         select(
-            ParkingZone.code.label("zone_code"),
+            ParkingSector.code.label("zone_code"),
             GuidanceDisplay.code.label("display_code"),
             GuidanceDisplay.title.label("display_title"),
             GuidanceDisplay.arrow_direction,
             GuidanceDisplay.is_active,
         )
-        .join(ParkingZone, GuidanceDisplay.zone_id == ParkingZone.id)
+        .join(ParkingSector, GuidanceDisplay.sector_id == ParkingSector.id)
         .where(GuidanceDisplay.code == display_code)
     )
 
@@ -188,11 +201,11 @@ async def get_display_summary(
     if display is None:
         raise HTTPException(status_code=404, detail="Display not found.")
 
-    zone = await db.scalar(select(ParkingZone).where(ParkingZone.id == display.zone_id))
-    if zone is None:
-        raise HTTPException(status_code=404, detail="Zone not found.")
+    sector = await db.scalar(select(ParkingSector).where(ParkingSector.id == display.sector_id))
+    if sector is None:
+        raise HTTPException(status_code=404, detail="Sector not found.")
 
-    return await get_display_summary_by_display_async(db, display, zone)
+    return await get_display_summary_by_display_async(db, display, sector)
 
 
 @router.patch(
@@ -221,12 +234,12 @@ async def update_display(
 
     await db.commit()
     await db.refresh(display)
-    zone = await db.scalar(select(ParkingZone).where(ParkingZone.id == display.zone_id))
-    if zone is None:
-        raise HTTPException(status_code=404, detail="Zone not found.")
+    sector = await db.scalar(select(ParkingSector).where(ParkingSector.id == display.sector_id))
+    if sector is None:
+        raise HTTPException(status_code=404, detail="Sector not found.")
 
     return DisplayItem(
-        zone_code=zone.code,
+        zone_code=sector.code,
         display_code=display.code,
         display_title=display.title,
         arrow_direction=display.arrow_direction,

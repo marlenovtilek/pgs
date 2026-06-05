@@ -11,6 +11,14 @@ class Settings(BaseSettings):
     mqtt_password: str | None = None
     mqtt_client_id: str = "pgs-mqtt-listener"
     mqtt_keepalive: int = 60
+    auth_secret_key: str = "pgs-dev-auth-secret-change-me"
+    auth_cookie_name: str = "pgs_auth"
+    auth_cookie_max_age: int = 60 * 60 * 24 * 7
+    auth_cookie_secure: bool = False
+    auth_registration_enabled: bool = False
+    api_token: str | None = None
+    admin_username: str | None = None
+    admin_password: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

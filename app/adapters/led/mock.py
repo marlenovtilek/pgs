@@ -7,6 +7,8 @@ class LedCommand:
     zone_code: str
     free_spots: int
     arrow_direction: str
+    parking_symbol: str
+    display_text: str
     message: str
 
 
@@ -21,6 +23,8 @@ class MockLedDisplayAdapter:
         zone_code: str,
         free_spots: int,
         arrow_direction: str,
+        parking_symbol: str,
+        display_text: str,
         message: str,
     ) -> None:
         self.commands.append(
@@ -29,6 +33,8 @@ class MockLedDisplayAdapter:
                 zone_code=zone_code,
                 free_spots=free_spots,
                 arrow_direction=arrow_direction,
+                parking_symbol=parking_symbol,
+                display_text=display_text,
                 message=message,
             )
         )
