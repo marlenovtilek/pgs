@@ -97,7 +97,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--auto-create-floor-sector",
         action="store_true",
-        help="Development-only: also create missing floors and sectors from MQTT payloads.",
+        help="Also create missing floors and sectors from valid MQTT spot codes.",
     )
     return parser.parse_args()
 

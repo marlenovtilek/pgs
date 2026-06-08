@@ -36,4 +36,4 @@ class User(Base):
         return self.username
 
     def __admin_select2_repr__(self, request) -> str:
-        return escape(self.username)
+        return f"<span>{escape(self.username)}</span>"

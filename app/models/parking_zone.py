@@ -38,6 +38,11 @@ class ParkingZone(Base):
         "ParkingSpot",
         back_populates="zone",
     )
+    displays: Mapped[list["GuidanceDisplay"]] = relationship(
+        "GuidanceDisplay",
+        secondary="guidance_display_zones",
+        back_populates="zones",
+    )
 
     def __repr__(self) -> str:
         return f"<ParkingZone code={self.code} sector_id={self.sector_id}>"
@@ -49,5 +54,5 @@ class ParkingZone(Base):
         return self.code
 
     def __admin_select2_repr__(self, request) -> str:
-        return escape(self.code)
+        return f"<span>{escape(self.code)}</span>"
     

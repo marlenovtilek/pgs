@@ -37,7 +37,7 @@ services:
         condition: service_healthy
       pgs-migrate:
         condition: service_completed_successfully
-      pgs-bootstrap:
+      pgs-admin-bootstrap:
         condition: service_completed_successfully
     networks:
       - default
@@ -50,7 +50,7 @@ services:
       dockerfile: Dockerfile
     container_name: pgs-mqtt-consumer
     working_dir: /app
-    command: python -m app.mqtt.consume_spot_events --auto-create
+    command: python -m app.mqtt.consume_spot_events --auto-create --auto-create-floor-sector
     volumes:
       - ./app:/app/app
       - ./migrations:/app/migrations
@@ -62,20 +62,43 @@ services:
         condition: service_healthy
       pgs-migrate:
         condition: service_completed_successfully
-      pgs-bootstrap:
+      pgs-admin-bootstrap:
         condition: service_completed_successfully
     networks:
       - default
       - smartparking_db_network
     restart: unless-stopped
 
-  pgs-bootstrap:
+  pgs-admin-bootstrap:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: pgs-bootstrap
+    container_name: pgs-admin-bootstrap
+    working_dir: /app
+    command: python -m app.simulation.bootstrap_admin_user
+    volumes:
+      - ./app:/app/app
+      - ./migrations:/app/migrations
+      - ./alembic.ini:/app/alembic.ini
+    env_file:
+      - .env
+    depends_on:
+      pgs-db:
+        condition: service_healthy
+      pgs-migrate:
+        condition: service_completed_successfully
+    networks:
+      - default
+
+  pgs-parking-bootstrap:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pgs-parking-bootstrap
     working_dir: /app
     command: python -m app.simulation.bootstrap_parking_config
+    profiles:
+      - demo
     volumes:
       - ./app:/app/app
       - ./migrations:/app/migrations

@@ -1,6 +1,6 @@
 # PGS - Parking Guidance Service
 
-PGS - это микросервис навигации по парковке. Его задача - принимать события о занятости парковочных мест, хранить актуальное состояние парковки, считать количество свободных мест по секторам и формировать команды для LED-табло.
+PGS - это микросервис навигации по парковке. Его задача - принимать события о занятости парковочных мест, хранить актуальное состояние парковки, считать количество свободных мест для настроенных LED-табло и формировать команды для отображения.
 
 Сервис не распознает номера, не управляет камерами и не решает задачу компьютерного зрения. Эти задачи выполняет внешний SmartParking/UNV слой. PGS получает уже готовые события через MQTT и превращает их в состояние парковки и команды навигации.
 
@@ -9,7 +9,7 @@ PGS - это микросервис навигации по парковке. Е
 PGS делает следующее:
 
 - принимает MQTT-события по парковочным местам;
-- создает camera zones и parking spots при приходе валидных MQTT-событий;
+- создает этажи, сектора, camera zones и parking spots при приходе валидных MQTT-событий;
 - хранит структуру парковки: этажи, сектора, camera zones, места;
 - считает свободные/занятые места;
 - формирует сообщения для LED-табло;
@@ -52,15 +52,17 @@ flowchart TB
     subgraph Docker Compose
         DB[(pgs-db / PostgreSQL)]
         Migrate[pgs-migrate / alembic upgrade head]
-        Bootstrap[pgs-bootstrap / base config]
+        AdminBootstrap[pgs-admin-bootstrap / admin user]
+        ParkingBootstrap[pgs-parking-bootstrap / demo base config]
         API[pgs-api / FastAPI]
         Consumer[pgs-mqtt-consumer]
     end
 
     DB --> Migrate
-    Migrate --> Bootstrap
-    Bootstrap --> API
-    Bootstrap --> Consumer
+    Migrate --> AdminBootstrap
+    AdminBootstrap --> API
+    AdminBootstrap --> Consumer
+    Migrate -. demo profile .-> ParkingBootstrap
     Consumer --> DB
     API --> DB
 ```
@@ -71,9 +73,10 @@ flowchart TB
 | --- | --- |
 | `pgs-db` | PostgreSQL база PGS |
 | `pgs-migrate` | применяет Alembic миграции |
-| `pgs-bootstrap` | создает базовую конфигурацию и первого администратора |
+| `pgs-admin-bootstrap` | создает первого администратора из `.env`, если он настроен |
+| `pgs-parking-bootstrap` | demo-only сервис, создает пример этажей/секторов/табло только при `--profile demo` |
 | `pgs-api` | FastAPI API, админка и LED simulator |
-| `pgs-mqtt-consumer` | слушает MQTT и обрабатывает события парковочных мест |
+| `pgs-mqtt-consumer` | слушает MQTT, обрабатывает события и создает структуру парковки из валидных кодов мест |
 
 ## Модель парковки
 
@@ -84,7 +87,9 @@ erDiagram
     ParkingFloor ||--o{ ParkingSector : contains
     ParkingSector ||--o{ ParkingZone : contains
     ParkingZone ||--o{ ParkingSpot : contains
-    ParkingSector ||--o{ GuidanceDisplay : targets
+    ParkingSector ||--o{ GuidanceDisplay : places
+    GuidanceDisplay ||--o{ GuidanceDisplayZone : connects
+    ParkingZone ||--o{ GuidanceDisplayZone : feeds
     ParkingSpot ||--o{ SpotOccupancyEvent : has
 
     ParkingFloor {
@@ -126,6 +131,12 @@ erDiagram
         string code
         string arrow_direction
         bool is_active
+    }
+
+    GuidanceDisplayZone {
+        int display_id
+        int zone_id
+        int sort_order
     }
 
     SpotOccupancyEvent {
@@ -273,34 +284,44 @@ sequenceDiagram
     MQTT->>Consumer: parking/spots/B1-A-01-1/status
     Consumer->>Parser: validate topic + payload
     Parser-->>Consumer: SpotEventRequest
-    Consumer->>DB: ensure camera zone and spot
+    Consumer->>DB: ensure floor, sector, camera zone and spot
     Consumer->>DB: save occupancy event
     Consumer->>DB: update parking spot status
-    Consumer->>LED: recalculate sector display messages
+    Consumer->>LED: recalculate displays connected to camera zone
     LED-->>Consumer: LED command count
 ```
 
 ### Auto-create
 
-`pgs-mqtt-consumer` запускается с:
+`pgs-mqtt-consumer` в compose запускается с:
 
 ```text
---auto-create
+--auto-create --auto-create-floor-sector
 ```
 
 Это значит:
 
-- если сектор уже настроен в PGS, consumer может автоматически создать missing camera zone;
-- если spot еще не существует, consumer может автоматически создать spot;
-- floor/sector по умолчанию не создаются из MQTT, их нужно иметь заранее через bootstrap или админку.
+- если floor еще не существует, consumer создает его из `spot_id`;
+- если sector еще не существует, consumer создает его из `spot_id`;
+- если camera zone еще не существует, consumer создает ее из `spot_id`;
+- если parking spot еще не существует, consumer создает его из `spot_id`;
+- после этого событие сохраняется и статус места обновляется.
 
-Для разработки есть флаг:
+Поэтому PGS можно запускать на чистой БД без заранее прошитого парковочного каркаса.
+
+Пример auto-create:
 
 ```text
---auto-create-floor-sector
+MQTT spot_id: B1-A-01-1
+
+создаст:
+ParkingFloor  -> B1
+ParkingSector -> B1-A
+ParkingZone   -> B1-A-01
+ParkingSpot   -> B1-A-01-1
 ```
 
-Он может создавать floor/sector из MQTT, но это development-only режим. В compose он не используется.
+Важно: LED-табло, стрелки и связи табло с camera zones из MQTT не создаются, потому что это физическая схема установки оборудования. Их нужно настроить в админке или загрузить отдельным конфигом.
 
 ## LED-логика
 
@@ -337,12 +358,27 @@ PGS формирует команды для LED-табло.
 
 Стрелка не считается автоматически из MQTT. Она настраивается вручную для конкретного табло, потому что зависит от физического места установки.
 
+Количество свободных мест считается не по всему сектору, а по camera zones, подключенным к конкретному табло.
+
 Пример:
 
 ```text
-DISP-B1-A -> сектор B1-A -> LEFT
-DISP-B1-B -> сектор B1-B -> RIGHT
-DISP-B1-C -> сектор B1-C -> AHEAD
+DISP-LINE-01-RIGHT -> RIGHT -> zones: B1-A-01, B1-A-02
+DISP-LINE-02-LEFT  -> LEFT  -> zones: B1-A-03, B1-A-04
+DISP-LINE-02-RIGHT -> RIGHT -> zones: B1-A-05, B1-A-06
+```
+
+Если `DISP-LINE-01-RIGHT` подключен к двум camera zones:
+
+```text
+B1-A-01 -> 3 free
+B1-A-02 -> 4 free
+```
+
+то маленькое табло покажет:
+
+```text
+→ 7 P
 ```
 
 Если свободных мест `0`, стрелка остается той же, а число становится `0`:
@@ -528,7 +564,7 @@ curl http://localhost:8010/api/v1/zones/summary \
 
 ### Displays
 
-В API поле `sector_code` у display означает сектор, к которому привязано табло.
+В API поле `sector_code` у display означает сектор, где физически находится табло. Поле `camera_zone_codes` означает camera zones, свободные места которых суммируются этим табло.
 
 | Method | Path | Назначение |
 | --- | --- | --- |
@@ -581,6 +617,7 @@ http://localhost:8010/admin/login
 ```text
 Guidance Display
   -> sector
+  -> zones
   -> code
   -> title
   -> arrow_direction
@@ -756,16 +793,44 @@ docker compose exec pgs-api python -m app.mqtt.listen \
 docker compose exec pgs-api python -m app.mqtt.consume_spot_events \
   --host 10.210.10.25 \
   --port 1883 \
-  --auto-create
+  --auto-create \
+  --auto-create-floor-sector
 ```
 
 В compose `pgs-mqtt-consumer` уже запускается автоматически.
 
 ## Bootstrap
 
-`pgs-bootstrap` запускается автоматически в compose.
+Обычный `docker compose up` не создает парковочный каркас заранее. Это сделано специально, чтобы PGS оставался динамичным микросервисом и мог работать на другой парковке без переписывания seed-данных.
 
-По умолчанию он создает:
+Автоматически запускается только:
+
+```text
+pgs-admin-bootstrap
+```
+
+Он создает первого пользователя админки, если в `.env` заданы:
+
+```env
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=change-this-password
+```
+
+### Demo parking bootstrap
+
+Для локального demo-сценария есть отдельный сервис:
+
+```text
+pgs-parking-bootstrap
+```
+
+Он не запускается по умолчанию. Его можно запустить через profile:
+
+```bash
+docker compose --profile demo up pgs-parking-bootstrap
+```
+
+По умолчанию demo bootstrap создает:
 
 ```text
 Floor: B1
@@ -775,9 +840,15 @@ Displays: DISP-B1-A, DISP-B1-B, DISP-B1-C
 
 Он не создает parking spots заранее.
 
-Parking spots создаются при приходе MQTT-событий.
+В основном рабочем сценарии parking spots, camera zones, sectors и floors создаются при приходе MQTT-событий.
 
 Ручной запуск:
+
+```bash
+docker compose exec pgs-api python -m app.simulation.bootstrap_admin_user
+```
+
+Ручной запуск demo parking config:
 
 ```bash
 docker compose exec pgs-api python -m app.simulation.bootstrap_parking_config
@@ -815,7 +886,7 @@ docker compose run --rm -v ./tests:/app/tests pgs-api python -m pytest
 Последняя проверка проекта:
 
 ```text
-60 passed
+63 passed
 ```
 
 ## Миграции
@@ -852,7 +923,8 @@ app/services/led.py                  - публикация LED команд
 app/adapters/led/mock.py             - mock LED adapter
 app/adapters/led/vendor.py           - будущий vendor adapter
 app/models/                          - SQLAlchemy models
-app/simulation/bootstrap_parking_config.py - базовая конфигурация
+app/simulation/bootstrap_admin_user.py - создание первого admin-пользователя
+app/simulation/bootstrap_parking_config.py - demo-конфигурация парковки
 app/api/led_simulator.py             - HTML/JS LED simulator
 ```
 
@@ -863,14 +935,16 @@ app/api/led_simulator.py             - HTML/JS LED simulator
 - FastAPI API;
 - PostgreSQL schema и миграции;
 - MQTT consumer;
-- auto-create camera zones/spots;
+- auto-create floors/sectors/camera zones/spots;
 - admin login;
 - API token guard;
 - Starlette Admin;
 - LED simulator;
 - логика маленьких LED-табло `arrow + count + P`;
 - entry display summary;
-- базовый bootstrap;
+- динамический auto-create `floor -> sector -> camera zone -> spot` из MQTT;
+- отдельный admin bootstrap;
+- demo parking bootstrap через compose profile;
 - тесты.
 
 Не готово:
@@ -920,14 +994,14 @@ DisplayCommandPort
 ```mermaid
 flowchart TD
     Start[Start docker compose] --> Migrate[Alembic migrations]
-    Migrate --> Bootstrap[Bootstrap B1 sectors and displays]
-    Bootstrap --> Admin[Admin login]
-    Bootstrap --> MQTT[MQTT consumer listens]
+    Migrate --> AdminBootstrap[Create admin user if configured]
+    AdminBootstrap --> Admin[Admin login]
+    AdminBootstrap --> MQTT[MQTT consumer listens]
     MQTT --> Event[Spot status event arrives]
     Event --> Validate[Validate new spot code]
-    Validate --> AutoCreate[Auto-create camera zone and spot]
+    Validate --> AutoCreate[Auto-create floor, sector, camera zone and spot]
     AutoCreate --> Update[Update spot status]
-    Update --> Count[Count free spots by sector]
+    Update --> Count[Count free spots by connected camera zones]
     Count --> Command[Build LED command]
     Command --> Simulator[Admin LED simulator updates]
     Command -. future .-> Hardware[Real LED display]
@@ -938,7 +1012,7 @@ flowchart TD
 ```text
 MQTT событие пришло
 -> spot создан или обновлен
--> sector summary изменился
+-> display summary изменился
 -> displays/messages изменились
 -> LED simulator показывает новое число
 ```

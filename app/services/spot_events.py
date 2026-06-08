@@ -10,8 +10,8 @@ from app.domain.ports.display import DisplayCommandPort
 from app.models.spot_occupancy_event import SpotOccupancyEvent
 from app.schemas.spot_event import SpotEventRequest, SpotEventResponse
 from app.services.led import (
-    publish_spot_sector_display_messages,
-    publish_spot_sector_display_messages_async,
+    publish_spot_display_messages,
+    publish_spot_display_messages_async,
 )
 from app.services.spots import AmbiguousSpotCodeError, resolve_spot, resolve_spot_async
 
@@ -108,7 +108,7 @@ def process_spot_event(
     led_commands_sent = 0
     if display_port is not None:
         led_commands_sent = asyncio.run(
-            publish_spot_sector_display_messages(
+            publish_spot_display_messages(
                 db,
                 spot_id=spot.id,
                 display_port=display_port,
@@ -181,7 +181,7 @@ async def process_spot_event_async(
 
     led_commands_sent = 0
     if display_port is not None:
-        led_commands_sent = await publish_spot_sector_display_messages_async(
+        led_commands_sent = await publish_spot_display_messages_async(
             db,
             spot_id=spot.id,
             display_port=display_port,

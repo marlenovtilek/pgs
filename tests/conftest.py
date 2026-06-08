@@ -42,27 +42,31 @@ def seed_sector_with_camera_zone(
         db.add(floor)
         db.flush()
 
-    sector = ParkingSector(
-        floor_id=floor.id,
-        title=f"Sector {sector_code}",
-        code=sector_code,
-        sector_letter=sector_code.split("-", maxsplit=1)[-1],
-        sort_order=1,
-        is_active=True,
-    )
-    db.add(sector)
-    db.flush()
+    sector = db.query(ParkingSector).filter_by(code=sector_code).one_or_none()
+    if sector is None:
+        sector = ParkingSector(
+            floor_id=floor.id,
+            title=f"Sector {sector_code}",
+            code=sector_code,
+            sector_letter=sector_code.split("-", maxsplit=1)[-1],
+            sort_order=1,
+            is_active=True,
+        )
+        db.add(sector)
+        db.flush()
 
-    zone = ParkingZone(
-        sector_id=sector.id,
-        title=f"Camera Zone {camera_zone_code}",
-        code=camera_zone_code,
-        zone_number=camera_zone_code.rsplit("-", maxsplit=1)[-1],
-        sort_order=1,
-        is_active=True,
-    )
-    db.add(zone)
-    db.flush()
+    zone = db.query(ParkingZone).filter_by(sector_id=sector.id, code=camera_zone_code).one_or_none()
+    if zone is None:
+        zone = ParkingZone(
+            sector_id=sector.id,
+            title=f"Camera Zone {camera_zone_code}",
+            code=camera_zone_code,
+            zone_number=camera_zone_code.rsplit("-", maxsplit=1)[-1],
+            sort_order=1,
+            is_active=True,
+        )
+        db.add(zone)
+        db.flush()
 
     return sector, zone
 
@@ -89,19 +93,23 @@ def seed_spot(
 
 def seed_display(
     db,
-    zone: ParkingSector,
+    sector: ParkingSector,
     *,
     code: str = "DISP-A-01",
     arrow_direction: str = "AHEAD",
+    camera_zones: list[ParkingZone] | None = None,
     is_active: bool = True,
 ) -> GuidanceDisplay:
     display = GuidanceDisplay(
         title="Display",
         code=code,
-        sector_id=zone.id,
+        sector_id=sector.id,
         arrow_direction=arrow_direction,
         is_active=is_active,
     )
+    if camera_zones is None:
+        camera_zones = db.query(ParkingZone).filter_by(sector_id=sector.id).all()
+    display.zones = camera_zones
     db.add(display)
     db.flush()
     return display

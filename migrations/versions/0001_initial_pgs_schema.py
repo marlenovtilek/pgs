@@ -117,6 +117,22 @@ def upgrade() -> None:
     op.create_index(op.f("ix_guidance_displays_sector_id"), "guidance_displays", ["sector_id"], unique=False)
 
     op.create_table(
+        "guidance_display_zones",
+        sa.Column("display_id", sa.Integer(), nullable=False),
+        sa.Column("zone_id", sa.Integer(), nullable=False),
+        sa.Column("sort_order", sa.Integer(), server_default="0", nullable=False),
+        sa.ForeignKeyConstraint(["display_id"], ["guidance_displays.id"]),
+        sa.ForeignKeyConstraint(["zone_id"], ["parking_zones.id"]),
+        sa.PrimaryKeyConstraint("display_id", "zone_id"),
+    )
+    op.create_index(
+        op.f("ix_guidance_display_zones_zone_id"),
+        "guidance_display_zones",
+        ["zone_id"],
+        unique=False,
+    )
+
+    op.create_table(
         "spot_occupancy_events",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("spot_id", sa.Integer(), nullable=False),
@@ -145,6 +161,8 @@ def downgrade() -> None:
 
     op.drop_index(op.f("ix_guidance_displays_sector_id"), table_name="guidance_displays")
     op.drop_index(op.f("ix_guidance_displays_code"), table_name="guidance_displays")
+    op.drop_index(op.f("ix_guidance_display_zones_zone_id"), table_name="guidance_display_zones")
+    op.drop_table("guidance_display_zones")
     op.drop_table("guidance_displays")
 
     op.drop_index(op.f("ix_parking_spots_zone_id"), table_name="parking_spots")

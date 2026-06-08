@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.async_database import get_async_db
-from app.models.guidance_display import GuidanceDisplay
+from app.models.guidance_display import GuidanceDisplay, guidance_display_zones
 from app.models.parking_sector import ParkingSector
+from app.models.parking_zone import ParkingZone
 from app.schemas.display import (
     DisplayCreateRequest,
     DisplayItem,
@@ -26,14 +27,82 @@ from app.services.display import (
 router = APIRouter(tags=["display"])
 
 
-def _display_item_from_row(row) -> DisplayItem:
+async def _camera_zone_codes_for_display(
+    db: AsyncSession,
+    display_id: int,
+) -> list[str]:
+    rows = (
+        await db.execute(
+            select(ParkingZone.code)
+            .join(guidance_display_zones, guidance_display_zones.c.zone_id == ParkingZone.id)
+            .where(guidance_display_zones.c.display_id == display_id)
+            .order_by(guidance_display_zones.c.sort_order, ParkingZone.code)
+        )
+    ).all()
+    return [row.code for row in rows]
+
+
+async def _display_item_from_display(
+    db: AsyncSession,
+    display: GuidanceDisplay,
+    sector: ParkingSector,
+) -> DisplayItem:
     return DisplayItem(
-        sector_code=row.sector_code,
-        display_code=row.display_code,
-        display_title=row.display_title,
-        arrow_direction=row.arrow_direction,
-        is_active=row.is_active,
+        sector_code=sector.code,
+        display_code=display.code,
+        display_title=display.title,
+        arrow_direction=display.arrow_direction,
+        camera_zone_codes=await _camera_zone_codes_for_display(db, display.id),
+        is_active=display.is_active,
     )
+
+
+async def _camera_zone_ids_for_codes(
+    db: AsyncSession,
+    *,
+    sector_id: int,
+    camera_zone_codes: list[str],
+) -> list[int]:
+    unique_codes = list(dict.fromkeys(camera_zone_codes))
+    if not unique_codes:
+        return []
+
+    rows = (
+        await db.execute(
+            select(ParkingZone.id, ParkingZone.code).where(
+                ParkingZone.sector_id == sector_id,
+                ParkingZone.code.in_(unique_codes),
+            )
+        )
+    ).all()
+    zone_ids_by_code = {row.code: row.id for row in rows}
+    missing_codes = [code for code in unique_codes if code not in zone_ids_by_code]
+    if missing_codes:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Camera zones not found in sector: {', '.join(missing_codes)}.",
+        )
+
+    return [zone_ids_by_code[code] for code in unique_codes]
+
+
+async def _replace_display_camera_zones(
+    db: AsyncSession,
+    *,
+    display_id: int,
+    zone_ids: list[int],
+) -> None:
+    await db.execute(
+        delete(guidance_display_zones).where(guidance_display_zones.c.display_id == display_id)
+    )
+    for sort_order, zone_id in enumerate(zone_ids, start=1):
+        await db.execute(
+            guidance_display_zones.insert().values(
+                display_id=display_id,
+                zone_id=zone_id,
+                sort_order=sort_order,
+            )
+        )
 
 
 @router.get(
@@ -46,13 +115,7 @@ async def get_displays(
     is_active: bool | None = None,
 ) -> DisplayListResponse:
     statement = (
-        select(
-            ParkingSector.code.label("sector_code"),
-            GuidanceDisplay.code.label("display_code"),
-            GuidanceDisplay.title.label("display_title"),
-            GuidanceDisplay.arrow_direction,
-            GuidanceDisplay.is_active,
-        )
+        select(GuidanceDisplay, ParkingSector)
         .join(ParkingSector, GuidanceDisplay.sector_id == ParkingSector.id)
         .order_by(ParkingSector.code, GuidanceDisplay.code)
     )
@@ -62,7 +125,12 @@ async def get_displays(
         statement = statement.where(GuidanceDisplay.is_active == is_active)
 
     rows = (await db.execute(statement)).all()
-    return DisplayListResponse(items=[_display_item_from_row(row) for row in rows])
+    return DisplayListResponse(
+        items=[
+            await _display_item_from_display(db, display, sector)
+            for display, sector in rows
+        ]
+    )
 
 
 @router.get(
@@ -138,6 +206,12 @@ async def create_display(
     if existing_display is not None:
         raise HTTPException(status_code=400, detail="Display already exists.")
 
+    zone_ids = await _camera_zone_ids_for_codes(
+        db,
+        sector_id=sector.id,
+        camera_zone_codes=request.camera_zone_codes,
+    )
+
     display = GuidanceDisplay(
         title=request.title,
         code=request.code,
@@ -147,16 +221,12 @@ async def create_display(
     )
 
     db.add(display)
+    await db.flush()
+    await _replace_display_camera_zones(db, display_id=display.id, zone_ids=zone_ids)
     await db.commit()
     await db.refresh(display)
 
-    return DisplayItem(
-        sector_code=sector.code,
-        display_code=display.code,
-        display_title=display.title,
-        arrow_direction=display.arrow_direction,
-        is_active=display.is_active,
-    )
+    return await _display_item_from_display(db, display, sector)
 
 
 @router.get(
@@ -168,13 +238,7 @@ async def get_display_by_code(
     db: AsyncSession = Depends(get_async_db),
 ) -> DisplayItem:
     statement = (
-        select(
-            ParkingSector.code.label("sector_code"),
-            GuidanceDisplay.code.label("display_code"),
-            GuidanceDisplay.title.label("display_title"),
-            GuidanceDisplay.arrow_direction,
-            GuidanceDisplay.is_active,
-        )
+        select(GuidanceDisplay, ParkingSector)
         .join(ParkingSector, GuidanceDisplay.sector_id == ParkingSector.id)
         .where(GuidanceDisplay.code == display_code)
     )
@@ -184,7 +248,8 @@ async def get_display_by_code(
     if row is None:
         raise HTTPException(status_code=404, detail="Display not found.")
 
-    return _display_item_from_row(row)
+    display, sector = row
+    return await _display_item_from_display(db, display, sector)
 
 
 @router.get(
@@ -232,19 +297,22 @@ async def update_display(
     if request.is_active is not None:
         display.is_active = request.is_active
 
-    await db.commit()
-    await db.refresh(display)
     sector = await db.scalar(select(ParkingSector).where(ParkingSector.id == display.sector_id))
     if sector is None:
         raise HTTPException(status_code=404, detail="Sector not found.")
 
-    return DisplayItem(
-        sector_code=sector.code,
-        display_code=display.code,
-        display_title=display.title,
-        arrow_direction=display.arrow_direction,
-        is_active=display.is_active,
-    )
+    if request.camera_zone_codes is not None:
+        zone_ids = await _camera_zone_ids_for_codes(
+            db,
+            sector_id=sector.id,
+            camera_zone_codes=request.camera_zone_codes,
+        )
+        await _replace_display_camera_zones(db, display_id=display.id, zone_ids=zone_ids)
+
+    await db.commit()
+    await db.refresh(display)
+
+    return await _display_item_from_display(db, display, sector)
 
 
 @router.get(

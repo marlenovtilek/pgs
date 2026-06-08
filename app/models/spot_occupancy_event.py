@@ -38,4 +38,4 @@ class SpotOccupancyEvent(Base):
         return f"{self.spot_id} {self.status}"
 
     def __admin_select2_repr__(self, request) -> str:
-        return escape(self.__admin_repr__(request))
+        return f"<span>{escape(self.__admin_repr__(request))}</span>"

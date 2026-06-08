@@ -94,6 +94,7 @@ def test_seed_sector_spots_creates_config(db_session):
     assert [spot.code for spot in spots] == ["B1-C-01-1", "B1-C-01-2"]
     assert {spot.status for spot in spots} == {"UNKNOWN"}
     assert display.sector_id == sector.id
+    assert [display_zone.code for display_zone in display.zones] == ["B1-C-01"]
 
 
 def test_seed_sector_spots_is_idempotent(db_session):

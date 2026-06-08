@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.domain.value_objects.arrow_direction import ArrowDirection
 from app.domain.value_objects.spot_status import SpotStatus
-from app.models.guidance_display import GuidanceDisplay
+from app.models.guidance_display import GuidanceDisplay, guidance_display_zones
 from app.models.parking_floor import ParkingFloor
 from app.models.parking_sector import ParkingSector
 from app.models.parking_spot import ParkingSpot
@@ -197,19 +197,21 @@ def seed_sector_spots(
     display_code = f"DISP-{sector_code}"
     display = db.scalar(select(GuidanceDisplay).where(GuidanceDisplay.code == display_code))
     if display is None:
-        db.add(
-            GuidanceDisplay(
-                title=f"Display {sector_code}",
-                code=display_code,
-                sector_id=sector.id,
-                arrow_direction=arrow_direction.value,
-                is_active=True,
-            )
+        display = GuidanceDisplay(
+            title=f"Display {sector_code}",
+            code=display_code,
+            sector_id=sector.id,
+            arrow_direction=arrow_direction.value,
+            is_active=True,
         )
+        db.add(display)
+        db.flush()
         result.displays_created += 1
     elif not display.is_active:
         display.is_active = True
         result.displays_updated += 1
+
+    _replace_display_zones_with_sector_zones(db, display=display, sector=sector)
 
     if deactivate_missing_spots:
         desired_spot_codes = set(spot_codes)
@@ -315,3 +317,32 @@ def _get_or_create_sector(
     db.add(sector)
     db.flush()
     return sector
+
+
+def _replace_display_zones_with_sector_zones(
+    db: Session,
+    *,
+    display: GuidanceDisplay,
+    sector: ParkingSector,
+) -> None:
+    zone_ids = db.scalars(
+        select(ParkingZone.id)
+        .where(
+            ParkingZone.sector_id == sector.id,
+            ParkingZone.is_active.is_(True),
+        )
+        .order_by(ParkingZone.sort_order, ParkingZone.code)
+    ).all()
+    db.execute(
+        guidance_display_zones.delete().where(
+            guidance_display_zones.c.display_id == display.id,
+        )
+    )
+    for sort_order, zone_id in enumerate(zone_ids, start=1):
+        db.execute(
+            guidance_display_zones.insert().values(
+                display_id=display.id,
+                zone_id=zone_id,
+                sort_order=sort_order,
+            )
+        )

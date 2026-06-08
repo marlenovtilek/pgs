@@ -50,4 +50,4 @@ class ParkingSpot(Base):
         return self.code
 
     def __admin_select2_repr__(self, request) -> str:
-        return escape(self.code)
+        return f"<span>{escape(self.code)}</span>"

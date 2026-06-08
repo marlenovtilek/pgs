@@ -70,6 +70,36 @@ def test_display_message_formats_parking_zone_for_drivers(db_session):
     assert messages[0].display_text == "AHEAD 1 P"
 
 
+def test_display_message_counts_only_connected_camera_zones(db_session):
+    sector, camera_zone_01 = seed_sector_with_camera_zone(
+        db_session,
+        sector_code="B1-A",
+        camera_zone_code="B1-A-01",
+    )
+    _, camera_zone_02 = seed_sector_with_camera_zone(
+        db_session,
+        sector_code="B1-A",
+        camera_zone_code="B1-A-02",
+    )
+    seed_spot(db_session, camera_zone_01, code="B1-A-01-1", status="FREE")
+    seed_spot(db_session, camera_zone_01, code="B1-A-01-2", status="OCCUPIED")
+    seed_spot(db_session, camera_zone_02, code="B1-A-02-1", status="FREE")
+    seed_display(
+        db_session,
+        sector,
+        code="DISP-LINE-01-RIGHT",
+        arrow_direction="RIGHT",
+        camera_zones=[camera_zone_01],
+    )
+    db_session.commit()
+
+    messages = list_display_messages(db_session)
+
+    assert messages[0].display_code == "DISP-LINE-01-RIGHT"
+    assert messages[0].free_spots == 1
+    assert messages[0].display_text == "RIGHT 1 P"
+
+
 def test_build_entry_display_message_combines_zone_lines(db_session):
     zone_b1, camera_zone_b1 = seed_sector_with_camera_zone(db_session, sector_code="B1-C", camera_zone_code="B1-C")
     seed_spot(db_session, camera_zone_b1, code="B1-C001", status="FREE")

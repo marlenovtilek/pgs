@@ -1,10 +1,8 @@
 import argparse
 
-from app.core.config import settings
 from app.core.database import SessionLocal
 from app.domain.value_objects.arrow_direction import ArrowDirection
 from app.services.parking_config import seed_sector_display_config
-from app.services.users import UserAlreadyExistsError, create_user
 
 
 DEFAULT_SECTORS = ["B1-A", "B1-B", "B1-C"]
@@ -38,31 +36,14 @@ def main() -> None:
             sector_codes=sector_codes,
             arrow_direction=arrow_direction,
         )
-        admin_user_state = _ensure_admin_user(db)
 
     print(
         "base_config: "
         f"sectors={','.join(sector_codes)} "
         f"floors_created={result.floors_created} "
         f"sectors_created={result.sectors_created} "
-        f"displays_created={result.displays_created} "
-        f"admin_user={admin_user_state}"
+        f"displays_created={result.displays_created}"
     )
-
-
-def _ensure_admin_user(db) -> str:
-    if not settings.admin_username or not settings.admin_password:
-        return "not_configured"
-
-    try:
-        create_user(
-            db,
-            username=settings.admin_username,
-            password=settings.admin_password,
-        )
-    except UserAlreadyExistsError:
-        return "exists"
-    return "created"
 
 
 if __name__ == "__main__":

@@ -1,12 +1,22 @@
 from datetime import datetime
 from html import escape
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, String, func
+from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, ForeignKey, Integer, String, Table, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
 from app.domain.value_objects.arrow_direction import ArrowDirection
+
+
+guidance_display_zones = Table(
+    "guidance_display_zones",
+    Base.metadata,
+    Column("display_id", ForeignKey("guidance_displays.id"), primary_key=True),
+    Column("zone_id", ForeignKey("parking_zones.id"), primary_key=True, index=True),
+    Column("sort_order", Integer, nullable=False, server_default="0"),
+)
+
 
 class GuidanceDisplay(Base):
     __tablename__ = "guidance_displays"
@@ -42,6 +52,11 @@ class GuidanceDisplay(Base):
         "ParkingSector",
         back_populates="displays",
     )
+    zones: Mapped[list["ParkingZone"]] = relationship(
+        "ParkingZone",
+        secondary=guidance_display_zones,
+        back_populates="displays",
+    )
 
     def __repr__(self) -> str:
         return f"<GuidanceDisplay code={self.code} sector_id={self.sector_id} direction={self.arrow_direction}>"
@@ -53,4 +68,4 @@ class GuidanceDisplay(Base):
         return self.code
 
     def __admin_select2_repr__(self, request) -> str:
-        return escape(self.code)
+        return f"<span>{escape(self.code)}</span>"

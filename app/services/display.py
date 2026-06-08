@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.domain.use_cases import calculate_zone_summary
 from app.domain.value_objects.arrow_direction import resolve_display_arrow_direction
 from app.domain.value_objects.spot_status import SpotStatus
-from app.models.guidance_display import GuidanceDisplay
+from app.models.guidance_display import GuidanceDisplay, guidance_display_zones
 from app.models.parking_floor import ParkingFloor
 from app.models.parking_sector import ParkingSector
 from app.models.parking_spot import ParkingSpot
@@ -23,12 +23,13 @@ FLOOR_SECTOR_ZONE_CODE_PATTERN = re.compile(r"^[A-Za-z]\d+-[A-Za-z]+$")
 PARKING_SYMBOL = "P"
 
 
-def _sector_statuses(db: Session, sector_id: int) -> list[SpotStatus]:
+def _display_statuses(db: Session, display_id: int) -> list[SpotStatus]:
     rows = db.execute(
         select(ParkingSpot.status)
         .join(ParkingZone, ParkingSpot.zone_id == ParkingZone.id)
+        .join(guidance_display_zones, guidance_display_zones.c.zone_id == ParkingZone.id)
         .where(
-            ParkingZone.sector_id == sector_id,
+            guidance_display_zones.c.display_id == display_id,
             ParkingZone.is_active.is_(True),
             ParkingSpot.is_active.is_(True),
         )
@@ -37,13 +38,14 @@ def _sector_statuses(db: Session, sector_id: int) -> list[SpotStatus]:
     return [SpotStatus(row.status) for row in rows]
 
 
-async def _sector_statuses_async(db: AsyncSession, sector_id: int) -> list[SpotStatus]:
+async def _display_statuses_async(db: AsyncSession, display_id: int) -> list[SpotStatus]:
     rows = (
         await db.execute(
             select(ParkingSpot.status)
             .join(ParkingZone, ParkingSpot.zone_id == ParkingZone.id)
+            .join(guidance_display_zones, guidance_display_zones.c.zone_id == ParkingZone.id)
             .where(
-                ParkingZone.sector_id == sector_id,
+                guidance_display_zones.c.display_id == display_id,
                 ParkingZone.is_active.is_(True),
                 ParkingSpot.is_active.is_(True),
             )
@@ -129,7 +131,7 @@ def get_display_summary_by_display(
     display: GuidanceDisplay,
     sector: ParkingSector,
 ) -> DisplaySummaryResponse:
-    summary = calculate_zone_summary(_sector_statuses(db, sector.id))
+    summary = calculate_zone_summary(_display_statuses(db, display.id))
 
     return DisplaySummaryResponse(
         display_code=display.code,
@@ -147,7 +149,7 @@ async def get_display_summary_by_display_async(
     display: GuidanceDisplay,
     sector: ParkingSector,
 ) -> DisplaySummaryResponse:
-    summary = calculate_zone_summary(await _sector_statuses_async(db, sector.id))
+    summary = calculate_zone_summary(await _display_statuses_async(db, display.id))
 
     return DisplaySummaryResponse(
         display_code=display.code,
@@ -165,7 +167,7 @@ def get_display_message_by_display(
     display: GuidanceDisplay,
     sector: ParkingSector,
 ) -> DisplayMessageResponse:
-    summary = calculate_zone_summary(_sector_statuses(db, sector.id))
+    summary = calculate_zone_summary(_display_statuses(db, display.id))
 
     return _build_display_message(
         display=display,
@@ -179,7 +181,7 @@ async def get_display_message_by_display_async(
     display: GuidanceDisplay,
     sector: ParkingSector,
 ) -> DisplayMessageResponse:
-    summary = calculate_zone_summary(await _sector_statuses_async(db, sector.id))
+    summary = calculate_zone_summary(await _display_statuses_async(db, display.id))
 
     return _build_display_message(
         display=display,
@@ -269,6 +271,38 @@ def list_display_messages(
     ]
 
 
+def list_display_messages_for_camera_zone(
+    db: Session,
+    *,
+    camera_zone_id: int,
+    is_active: bool | None = None,
+) -> list[DisplayMessageResponse]:
+    statement = (
+        select(GuidanceDisplay, ParkingSector)
+        .join(ParkingSector, GuidanceDisplay.sector_id == ParkingSector.id)
+        .join(ParkingFloor, ParkingSector.floor_id == ParkingFloor.id)
+        .join(guidance_display_zones, guidance_display_zones.c.display_id == GuidanceDisplay.id)
+        .join(ParkingZone, guidance_display_zones.c.zone_id == ParkingZone.id)
+        .where(
+            guidance_display_zones.c.zone_id == camera_zone_id,
+            ParkingSector.is_active.is_(True),
+            ParkingFloor.is_active.is_(True),
+            ParkingZone.is_active.is_(True),
+        )
+        .order_by(GuidanceDisplay.code)
+    )
+
+    if is_active is not None:
+        statement = statement.where(GuidanceDisplay.is_active == is_active)
+
+    rows = db.execute(statement).all()
+
+    return [
+        get_display_message_by_display(db, display, sector)
+        for display, sector in rows
+    ]
+
+
 async def list_display_messages_async(
     db: AsyncSession,
     *,
@@ -297,6 +331,38 @@ async def list_display_messages_async(
     return [
         await get_display_message_by_display_async(db, display, zone)
         for display, zone in rows
+    ]
+
+
+async def list_display_messages_for_camera_zone_async(
+    db: AsyncSession,
+    *,
+    camera_zone_id: int,
+    is_active: bool | None = None,
+) -> list[DisplayMessageResponse]:
+    statement = (
+        select(GuidanceDisplay, ParkingSector)
+        .join(ParkingSector, GuidanceDisplay.sector_id == ParkingSector.id)
+        .join(ParkingFloor, ParkingSector.floor_id == ParkingFloor.id)
+        .join(guidance_display_zones, guidance_display_zones.c.display_id == GuidanceDisplay.id)
+        .join(ParkingZone, guidance_display_zones.c.zone_id == ParkingZone.id)
+        .where(
+            guidance_display_zones.c.zone_id == camera_zone_id,
+            ParkingSector.is_active.is_(True),
+            ParkingFloor.is_active.is_(True),
+            ParkingZone.is_active.is_(True),
+        )
+        .order_by(GuidanceDisplay.code)
+    )
+
+    if is_active is not None:
+        statement = statement.where(GuidanceDisplay.is_active == is_active)
+
+    rows = (await db.execute(statement)).all()
+
+    return [
+        await get_display_message_by_display_async(db, display, sector)
+        for display, sector in rows
     ]
 
 

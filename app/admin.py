@@ -95,6 +95,7 @@ def setup_admin(app: FastAPI) -> None:
             "sector",
             "code",
             "title",
+            "zones",
             EnumField(
                 "arrow_direction",
                 choices=ARROW_DIRECTION_CHOICES,
@@ -146,6 +147,7 @@ def setup_admin(app: FastAPI) -> None:
         title="PGS Admin",
         base_url="/admin",
         templates_dir="app/templates",
+        statics_dir="app/static/admin",
         auth_provider=PGSAdminAuthProvider(),
     )
     admin.add_view(

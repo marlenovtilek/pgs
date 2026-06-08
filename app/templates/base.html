@@ -1,0 +1,6 @@
+{% extends "@starlette-admin/base.html" %}
+
+{% block head_css %}
+    {{ super() }}
+    <link rel="stylesheet" href="{{ url_for(__name__ ~ ':statics', path='css/pgs-admin.css') }}">
+{% endblock %}
