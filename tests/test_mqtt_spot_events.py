@@ -86,7 +86,7 @@ def test_build_spot_event_request_treats_payload_camera_zone_as_camera_zone_code
     assert request.camera_zone_code == "B1-A-16"
 
 
-def test_build_spot_event_request_rejects_legacy_spot_format():
+def test_build_spot_event_request_rejects_old_spot_format():
     with pytest.raises(ValueError, match="Unsupported MQTT spot_id format"):
         build_spot_event_request_from_mqtt(
             topic="parking/spots/B1-B-036/status",

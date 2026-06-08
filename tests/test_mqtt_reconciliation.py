@@ -16,7 +16,7 @@ def test_zone_id_from_topic_extracts_zone_id():
 
 
 def test_zone_id_from_topic_rejects_other_topics():
-    assert zone_id_from_topic("parking/spots/B1-C001/status") is None
+    assert zone_id_from_topic("parking/spots/B1-C-01-1/status") is None
 
 
 def test_is_total_free_topic():
@@ -32,9 +32,9 @@ def test_free_spots_from_payload_requires_integer():
 
 def test_reconcile_zone_free_event_returns_diff_and_unknowns(db_session):
     _, camera_zone = seed_sector_with_camera_zone(db_session, sector_code="B1-C", camera_zone_code="B1-C")
-    seed_spot(db_session, camera_zone, code="B1-C001", status="FREE")
-    seed_spot(db_session, camera_zone, code="B1-C002", status="OCCUPIED")
-    seed_spot(db_session, camera_zone, code="B1-C003", status="UNKNOWN")
+    seed_spot(db_session, camera_zone, code="B1-C-01-1", status="FREE")
+    seed_spot(db_session, camera_zone, code="B1-C-01-2", status="OCCUPIED")
+    seed_spot(db_session, camera_zone, code="B1-C-01-3", status="UNKNOWN")
     db_session.commit()
 
     result = reconcile_zone_free_event(

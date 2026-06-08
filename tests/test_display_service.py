@@ -59,8 +59,8 @@ def test_display_message_keeps_configured_arrow_when_zone_has_no_free_spots(db_s
 
 def test_display_message_formats_parking_zone_for_drivers(db_session):
     zone, camera_zone = seed_sector_with_camera_zone(db_session, sector_code="B1-C", camera_zone_code="B1-C")
-    seed_spot(db_session, camera_zone, code="B1-C001", status="FREE")
-    seed_spot(db_session, camera_zone, code="B1-C002", status="OCCUPIED")
+    seed_spot(db_session, camera_zone, code="B1-C-01-1", status="FREE")
+    seed_spot(db_session, camera_zone, code="B1-C-01-2", status="OCCUPIED")
     seed_display(db_session, zone, code="DISP-B1-C", arrow_direction="AHEAD")
     db_session.commit()
 
@@ -102,12 +102,12 @@ def test_display_message_counts_only_connected_camera_zones(db_session):
 
 def test_build_entry_display_message_combines_zone_lines(db_session):
     zone_b1, camera_zone_b1 = seed_sector_with_camera_zone(db_session, sector_code="B1-C", camera_zone_code="B1-C")
-    seed_spot(db_session, camera_zone_b1, code="B1-C001", status="FREE")
+    seed_spot(db_session, camera_zone_b1, code="B1-C-01-1", status="FREE")
     seed_display(db_session, zone_b1, code="DISP-B1-C", arrow_direction="AHEAD")
 
     zone_b2, camera_zone_b2 = seed_sector_with_camera_zone(db_session, sector_code="B2-C", camera_zone_code="B2-C")
-    seed_spot(db_session, camera_zone_b2, code="B2-C01", status="FREE")
-    seed_spot(db_session, camera_zone_b2, code="B2-C02", status="FREE")
+    seed_spot(db_session, camera_zone_b2, code="B2-C-01-1", status="FREE")
+    seed_spot(db_session, camera_zone_b2, code="B2-C-01-2", status="FREE")
     seed_display(db_session, zone_b2, code="DISP-B2-C", arrow_direction="AHEAD")
     db_session.commit()
 

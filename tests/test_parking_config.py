@@ -22,17 +22,17 @@ def test_expand_spot_range_preserves_padding():
     ]
 
 
-def test_expand_spot_range_supports_short_padding():
-    assert expand_spot_range("B2-C01..B2-C03") == [
-        "B2-C01",
-        "B2-C02",
-        "B2-C03",
+def test_expand_spot_range_supports_spot_number_padding():
+    assert expand_spot_range("B2-C-04-01..B2-C-04-03") == [
+        "B2-C-04-01",
+        "B2-C-04-02",
+        "B2-C-04-03",
     ]
 
 
 def test_expand_spot_range_rejects_mismatched_prefix():
     with pytest.raises(ValueError):
-        expand_spot_range("B1-C001..B2-C003")
+        expand_spot_range("B1-C-01-1..B2-C-01-3")
 
 
 def test_parse_sector_spec_returns_sector_and_spots():

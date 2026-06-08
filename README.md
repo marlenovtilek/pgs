@@ -886,7 +886,7 @@ docker compose run --rm -v ./tests:/app/tests pgs-api python -m pytest
 Последняя проверка проекта:
 
 ```text
-63 passed
+66 passed
 ```
 
 ## Миграции

@@ -519,19 +519,6 @@ LED_SIMULATOR_HTML = """<!doctype html>
       return `<div class="parking-symbol">${escapeHtml(item.parking_symbol || "P")}</div>`;
     }
 
-    function parseLegacySpotNumber(value) {
-      const number = Number.parseInt(value, 10);
-      if (!Number.isFinite(number) || number < 1) {
-        return null;
-      }
-      const cameraZoneIndex = Math.floor((number - 1) / 6) + 1;
-      const spotNumber = ((number - 1) % 6) + 1;
-      return {
-        cameraZoneNumber: String(cameraZoneIndex).padStart(2, "0"),
-        spotNumber: String(spotNumber),
-      };
-    }
-
     function parseSpotCode(spotCode, fallbackZoneCode) {
       const zoneMatch = String(fallbackZoneCode || "").match(/^([A-Za-z]\\d+)-([A-Za-z]+)$/);
       const cameraZoneMatch = String(spotCode).match(/^([A-Za-z]\\d+)-([A-Za-z]+)-(\\d+)-(\\d+)$/);
@@ -547,30 +534,6 @@ LED_SIMULATOR_HTML = """<!doctype html>
         };
       }
 
-      const match = String(spotCode).match(/^([A-Za-z]\\d+)-([A-Za-z]+)-?(\\d+)$/);
-      if (match) {
-        const legacy = parseLegacySpotNumber(match[3]);
-        if (!legacy) {
-          return {
-            levelCode: match[1],
-            sectorCode: match[2],
-            cameraZoneNumber: "UNKNOWN",
-            spotNumber: match[3],
-            displaySpotNumber: match[3],
-            zoneCode: `${match[1]}-${match[2]}`,
-            cameraZoneCode: `${match[1]}-${match[2]}`,
-          };
-        }
-        return {
-          levelCode: match[1],
-          sectorCode: match[2],
-          cameraZoneNumber: legacy.cameraZoneNumber,
-          spotNumber: legacy.spotNumber,
-          displaySpotNumber: `${legacy.cameraZoneNumber}-${legacy.spotNumber}`,
-          zoneCode: `${match[1]}-${match[2]}`,
-          cameraZoneCode: `${match[1]}-${match[2]}-${legacy.cameraZoneNumber}`,
-        };
-      }
       if (zoneMatch) {
         return {
           levelCode: zoneMatch[1],
