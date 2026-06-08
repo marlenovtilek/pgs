@@ -1,10 +1,10 @@
 from datetime import datetime
-from html import escape
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.models.admin_repr import admin_select2_text
 
 class ParkingZone(Base):
     __tablename__ = "parking_zones"
@@ -54,5 +54,5 @@ class ParkingZone(Base):
         return self.code
 
     def __admin_select2_repr__(self, request) -> str:
-        return f"<span>{escape(self.code)}</span>"
+        return admin_select2_text(self.code)
     

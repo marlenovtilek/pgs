@@ -1,10 +1,10 @@
 from datetime import datetime
-from html import escape
 
 from sqlalchemy import Boolean, DateTime, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.models.admin_repr import admin_select2_text
 
 
 class User(Base):
@@ -36,4 +36,4 @@ class User(Base):
         return self.username
 
     def __admin_select2_repr__(self, request) -> str:
-        return f"<span>{escape(self.username)}</span>"
+        return admin_select2_text(self.username)

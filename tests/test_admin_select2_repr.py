@@ -4,6 +4,7 @@ from app.models.parking_sector import ParkingSector
 from app.models.parking_spot import ParkingSpot
 from app.models.parking_zone import ParkingZone
 from app.models.user import User
+from app.models.admin_repr import admin_select2_text
 
 
 def test_admin_select2_reprs_return_html_fragments():
@@ -19,3 +20,7 @@ def test_admin_select2_reprs_return_html_fragments():
     for model in models:
         assert model.__admin_select2_repr__(None).startswith("<span>")
         assert model.__admin_select2_repr__(None).endswith("</span>")
+
+
+def test_admin_select2_text_escapes_html():
+    assert admin_select2_text("B1-<A>") == "<span>B1-&lt;A&gt;</span>"

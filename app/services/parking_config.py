@@ -7,11 +7,16 @@ from sqlalchemy.orm import Session
 from app.domain.value_objects.arrow_direction import ArrowDirection
 from app.domain.value_objects.spot_status import SpotStatus
 from app.models.guidance_display import GuidanceDisplay, guidance_display_zones
-from app.models.parking_floor import ParkingFloor
 from app.models.parking_sector import ParkingSector
 from app.models.parking_spot import ParkingSpot
 from app.models.parking_zone import ParkingZone
 from app.services.parking_codes import parse_parking_spot_code, camera_zone_code_from_spot_code
+from app.services.parking_structure import (
+    get_or_create_floor,
+    get_or_create_sector,
+    sort_order_from_code,
+    split_sector_code,
+)
 
 
 SPOT_RANGE_PATTERN = re.compile(r"^(?P<prefix>.*?)(?P<number>\d+)$")
@@ -84,31 +89,13 @@ def seed_sector_display_config(
     result = ParkingBaseConfigSeedResult()
 
     for sector_code in sector_codes:
-        floor_code, sector_letter = _split_sector_code(sector_code)
-        floor = db.scalar(select(ParkingFloor).where(ParkingFloor.code == floor_code))
-        if floor is None:
-            floor = ParkingFloor(
-                title=f"Floor {floor_code}",
-                code=floor_code,
-                sort_order=_sort_order_from_spot_code(floor_code),
-                is_active=True,
-            )
-            db.add(floor)
-            db.flush()
+        floor_code, sector_letter = split_sector_code(sector_code)
+        floor, floor_created = get_or_create_floor(db, floor_code)
+        if floor_created:
             result.floors_created += 1
 
-        sector = db.scalar(select(ParkingSector).where(ParkingSector.code == sector_code))
-        if sector is None:
-            sector = ParkingSector(
-                floor_id=floor.id,
-                title=f"Sector {sector_code}",
-                code=sector_code,
-                sector_letter=sector_letter,
-                sort_order=_sort_order_from_spot_code(sector_letter),
-                is_active=True,
-            )
-            db.add(sector)
-            db.flush()
+        sector, sector_created = get_or_create_sector(db, floor, sector_code, sector_letter)
+        if sector_created:
             result.sectors_created += 1
 
         display_code = f"DISP-{sector_code}"
@@ -141,9 +128,9 @@ def seed_sector_spots(
 ) -> ParkingMapSeedResult:
     result = ParkingMapSeedResult()
 
-    floor_code, sector_letter = _split_sector_code(sector_code)
-    floor = _get_or_create_floor(db, floor_code)
-    sector = _get_or_create_sector(db, floor, sector_code, sector_letter)
+    floor_code, sector_letter = split_sector_code(sector_code)
+    floor, _ = get_or_create_floor(db, floor_code)
+    sector, _ = get_or_create_sector(db, floor, sector_code, sector_letter)
 
     for spot_code in spot_codes:
         parsed = parse_parking_spot_code(spot_code)
@@ -161,7 +148,7 @@ def seed_sector_spots(
                 title=f"Camera Zone {camera_zone_code}",
                 code=camera_zone_code,
                 zone_number=zone_number or camera_zone_code,
-                sort_order=_sort_order_from_spot_code(camera_zone_code),
+                sort_order=sort_order_from_code(camera_zone_code),
                 is_active=True,
             )
             db.add(zone)
@@ -188,7 +175,7 @@ def seed_sector_spots(
                 zone_id=zone.id,
                 code=spot_code,
                 status=initial_status.value,
-                sort_order=_sort_order_from_spot_code(spot_code),
+                sort_order=sort_order_from_code(spot_code),
                 is_active=True,
             )
         )
@@ -261,62 +248,6 @@ def deactivate_unlisted_sector_spots(db: Session, *, active_sector_codes: set[st
 
     db.commit()
     return updated
-
-
-def _sort_order_from_spot_code(spot_code: str) -> int:
-    match = SPOT_RANGE_PATTERN.match(spot_code)
-    if match is None:
-        return 0
-    return int(match.group("number"))
-
-
-def _split_sector_code(sector_code: str) -> tuple[str, str]:
-    if "-" not in sector_code:
-        raise ValueError("Sector code must look like FLOOR-SECTOR, for example B1-A.")
-    floor_code, sector_letter = sector_code.split("-", maxsplit=1)
-    return floor_code, sector_letter
-
-
-def _get_or_create_floor(
-    db: Session,
-    floor_code: str,
-) -> ParkingFloor:
-    floor = db.scalar(select(ParkingFloor).where(ParkingFloor.code == floor_code))
-    if floor is not None:
-        return floor
-
-    floor = ParkingFloor(
-        title=f"Floor {floor_code}",
-        code=floor_code,
-        sort_order=_sort_order_from_spot_code(floor_code),
-        is_active=True,
-    )
-    db.add(floor)
-    db.flush()
-    return floor
-
-
-def _get_or_create_sector(
-    db: Session,
-    floor: ParkingFloor,
-    sector_code: str,
-    sector_letter: str,
-) -> ParkingSector:
-    sector = db.scalar(select(ParkingSector).where(ParkingSector.code == sector_code))
-    if sector is not None:
-        return sector
-
-    sector = ParkingSector(
-        floor_id=floor.id,
-        title=f"Sector {sector_code}",
-        code=sector_code,
-        sector_letter=sector_letter,
-        sort_order=_sort_order_from_spot_code(sector_letter),
-        is_active=True,
-    )
-    db.add(sector)
-    db.flush()
-    return sector
 
 
 def _replace_display_zones_with_sector_zones(

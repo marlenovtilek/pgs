@@ -17,6 +17,14 @@ from app.services.parking_codes import (
     parse_parking_spot_code,
     sector_code_from_spot_code,
 )
+from app.services.parking_structure import (
+    get_or_create_floor,
+    get_or_create_floor_async,
+    get_or_create_sector,
+    get_or_create_sector_async,
+    sort_order_from_code,
+    split_sector_code,
+)
 
 
 MQTT_STATUS_MAP = {
@@ -117,10 +125,10 @@ def ensure_mqtt_parking_config(
     created = False
 
     parsed = parse_parking_spot_code(request.spot_code)
-    floor_code, sector_letter = _split_sector_code(sector_code)
+    floor_code, sector_letter = split_sector_code(sector_code)
     if create_missing_floor_sector:
-        floor, floor_created = _ensure_floor(db, floor_code)
-        sector, sector_created = _ensure_sector(db, floor, sector_code, sector_letter)
+        floor, floor_created = get_or_create_floor(db, floor_code)
+        sector, sector_created = get_or_create_sector(db, floor, sector_code, sector_letter)
         created = created or floor_created or sector_created
     else:
         sector = _get_configured_sector(db, sector_code)
@@ -134,7 +142,7 @@ def ensure_mqtt_parking_config(
             title=f"Camera Zone {camera_zone_code}",
             code=camera_zone_code,
             zone_number=camera_zone_number or camera_zone_code,
-            sort_order=_sort_order_from_spot_code(camera_zone_code),
+            sort_order=sort_order_from_code(camera_zone_code),
             is_active=True,
         )
         db.add(zone)
@@ -158,7 +166,7 @@ def ensure_mqtt_parking_config(
             zone_id=zone.id,
             code=request.spot_code,
             status=SpotStatus.UNKNOWN.value,
-            sort_order=_sort_order_from_spot_code(request.spot_code),
+            sort_order=sort_order_from_code(request.spot_code),
             is_active=True,
         )
         db.add(spot)
@@ -186,10 +194,10 @@ async def ensure_mqtt_parking_config_async(
     created = False
 
     parsed = parse_parking_spot_code(request.spot_code)
-    floor_code, sector_letter = _split_sector_code(sector_code)
+    floor_code, sector_letter = split_sector_code(sector_code)
     if create_missing_floor_sector:
-        floor, floor_created = await _ensure_floor_async(db, floor_code)
-        sector, sector_created = await _ensure_sector_async(db, floor, sector_code, sector_letter)
+        floor, floor_created = await get_or_create_floor_async(db, floor_code)
+        sector, sector_created = await get_or_create_sector_async(db, floor, sector_code, sector_letter)
         created = created or floor_created or sector_created
     else:
         sector = await _get_configured_sector_async(db, sector_code)
@@ -203,7 +211,7 @@ async def ensure_mqtt_parking_config_async(
             title=f"Camera Zone {camera_zone_code}",
             code=camera_zone_code,
             zone_number=camera_zone_number or camera_zone_code,
-            sort_order=_sort_order_from_spot_code(camera_zone_code),
+            sort_order=sort_order_from_code(camera_zone_code),
             is_active=True,
         )
         db.add(zone)
@@ -227,7 +235,7 @@ async def ensure_mqtt_parking_config_async(
             zone_id=zone.id,
             code=request.spot_code,
             status=SpotStatus.UNKNOWN.value,
-            sort_order=_sort_order_from_spot_code(request.spot_code),
+            sort_order=sort_order_from_code(request.spot_code),
             is_active=True,
         )
         db.add(spot)
@@ -242,15 +250,6 @@ async def ensure_mqtt_parking_config_async(
     return created
 
 
-def _sort_order_from_spot_code(spot_code: str) -> int:
-    digits = ""
-    for char in reversed(spot_code):
-        if not char.isdigit():
-            break
-        digits = char + digits
-    return int(digits) if digits else 0
-
-
 def _looks_like_camera_zone_code(value: str) -> bool:
     return len(value.split("-")) >= 3
 
@@ -258,12 +257,6 @@ def _looks_like_camera_zone_code(value: str) -> bool:
 def _sector_code_from_camera_zone_code(value: str) -> str:
     parts = value.split("-")
     return "-".join(parts[:2])
-
-
-def _split_sector_code(sector_code: str) -> tuple[str, str]:
-    if "-" not in sector_code:
-        raise ValueError("Sector code must look like FLOOR-SECTOR, for example B1-A.")
-    return tuple(sector_code.split("-", maxsplit=1))  # type: ignore[return-value]
 
 
 def _configured_sector_error(sector_code: str) -> ValueError:
@@ -288,58 +281,6 @@ def _get_configured_sector(db: Session, sector_code: str) -> ParkingSector:
     return sector
 
 
-def _ensure_floor(db: Session, floor_code: str) -> tuple[ParkingFloor, bool]:
-    floor = db.scalar(select(ParkingFloor).where(ParkingFloor.code == floor_code))
-    if floor is not None:
-        return floor, False
-    floor = ParkingFloor(
-        title=f"Floor {floor_code}",
-        code=floor_code,
-        sort_order=_sort_order_from_spot_code(floor_code),
-        is_active=True,
-    )
-    db.add(floor)
-    db.flush()
-    return floor, True
-
-
-def _ensure_sector(
-    db: Session,
-    floor: ParkingFloor,
-    sector_code: str,
-    sector_letter: str,
-) -> tuple[ParkingSector, bool]:
-    sector = db.scalar(select(ParkingSector).where(ParkingSector.code == sector_code))
-    if sector is not None:
-        return sector, False
-    sector = ParkingSector(
-        floor_id=floor.id,
-        title=f"Sector {sector_code}",
-        code=sector_code,
-        sector_letter=sector_letter,
-        sort_order=_sort_order_from_spot_code(sector_letter),
-        is_active=True,
-    )
-    db.add(sector)
-    db.flush()
-    return sector, True
-
-
-async def _ensure_floor_async(db: AsyncSession, floor_code: str) -> tuple[ParkingFloor, bool]:
-    floor = await db.scalar(select(ParkingFloor).where(ParkingFloor.code == floor_code))
-    if floor is not None:
-        return floor, False
-    floor = ParkingFloor(
-        title=f"Floor {floor_code}",
-        code=floor_code,
-        sort_order=_sort_order_from_spot_code(floor_code),
-        is_active=True,
-    )
-    db.add(floor)
-    await db.flush()
-    return floor, True
-
-
 async def _get_configured_sector_async(db: AsyncSession, sector_code: str) -> ParkingSector:
     sector = await db.scalar(
         select(ParkingSector)
@@ -354,24 +295,3 @@ async def _get_configured_sector_async(db: AsyncSession, sector_code: str) -> Pa
         raise _configured_sector_error(sector_code)
     return sector
 
-
-async def _ensure_sector_async(
-    db: AsyncSession,
-    floor: ParkingFloor,
-    sector_code: str,
-    sector_letter: str,
-) -> tuple[ParkingSector, bool]:
-    sector = await db.scalar(select(ParkingSector).where(ParkingSector.code == sector_code))
-    if sector is not None:
-        return sector, False
-    sector = ParkingSector(
-        floor_id=floor.id,
-        title=f"Sector {sector_code}",
-        code=sector_code,
-        sector_letter=sector_letter,
-        sort_order=_sort_order_from_spot_code(sector_letter),
-        is_active=True,
-    )
-    db.add(sector)
-    await db.flush()
-    return sector, True

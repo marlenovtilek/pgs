@@ -1,10 +1,10 @@
 from datetime import datetime
-from html import escape
 
 from sqlalchemy import DateTime, ForeignKey, JSON, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.models.admin_repr import admin_select2_text
 
 
 class SpotOccupancyEvent(Base):
@@ -38,4 +38,4 @@ class SpotOccupancyEvent(Base):
         return f"{self.spot_id} {self.status}"
 
     def __admin_select2_repr__(self, request) -> str:
-        return f"<span>{escape(self.__admin_repr__(request))}</span>"
+        return admin_select2_text(self.__admin_repr__(request))
