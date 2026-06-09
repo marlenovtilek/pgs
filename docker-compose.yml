@@ -76,8 +76,10 @@ services:
     container_name: pgs-fake-led
     working_dir: /app
     command: uvicorn app.simulation.fake_led_server:app --host 0.0.0.0 --port 9000
-    profiles:
-      - fake-led
+    # TEMP: профиль отключён, чтобы fake-led поднимался при обычном `docker compose up`.
+    # Чтобы вернуть его под профиль, раскомментируй строки ниже и запускай через `--profile fake-led`.
+    # profiles:
+    #   - fake-led
     ports:
       - "9000:9000"
     volumes:
