@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base
-from app.models import GuidanceDisplay, ParkingFloor, ParkingSector, ParkingSpot, ParkingZone
+from app.models import GuidanceDisplay, LedDevice, ParkingFloor, ParkingSector, ParkingSpot, ParkingZone
 
 
 @pytest.fixture()
@@ -98,12 +98,14 @@ def seed_display(
     code: str = "DISP-A-01",
     arrow_direction: str = "AHEAD",
     camera_zones: list[ParkingZone] | None = None,
+    led_device: LedDevice | None = None,
     is_active: bool = True,
 ) -> GuidanceDisplay:
     display = GuidanceDisplay(
         title="Display",
         code=code,
         sector_id=sector.id,
+        led_device_id=led_device.id if led_device is not None else None,
         arrow_direction=arrow_direction,
         is_active=is_active,
     )
@@ -113,3 +115,25 @@ def seed_display(
     db.add(display)
     db.flush()
     return display
+
+
+def seed_led_device(
+    db,
+    *,
+    code: str = "LED-A-01",
+    host: str = "192.168.1.10",
+    port: int = 5000,
+    protocol: str = "TCP",
+    is_active: bool = True,
+) -> LedDevice:
+    device = LedDevice(
+        code=code,
+        title=code,
+        host=host,
+        port=port,
+        protocol=protocol,
+        is_active=is_active,
+    )
+    db.add(device)
+    db.flush()
+    return device

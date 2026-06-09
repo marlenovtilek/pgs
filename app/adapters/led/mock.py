@@ -10,6 +10,10 @@ class LedCommand:
     parking_symbol: str
     display_text: str
     message: str
+    device_code: str | None = None
+    device_host: str | None = None
+    device_port: int | None = None
+    device_protocol: str | None = None
 
 
 class MockLedDisplayAdapter:
@@ -26,6 +30,10 @@ class MockLedDisplayAdapter:
         parking_symbol: str,
         display_text: str,
         message: str,
+        device_code: str | None = None,
+        device_host: str | None = None,
+        device_port: int | None = None,
+        device_protocol: str | None = None,
     ) -> None:
         self.commands.append(
             LedCommand(
@@ -36,6 +44,10 @@ class MockLedDisplayAdapter:
                 parking_symbol=parking_symbol,
                 display_text=display_text,
                 message=message,
+                device_code=device_code,
+                device_host=device_host,
+                device_port=device_port,
+                device_protocol=device_protocol,
             )
         )
 

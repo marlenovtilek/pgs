@@ -7,4 +7,5 @@ pydantic-settings
 alembic
 pytest
 paho-mqtt
-starlette-admin
+starlette-admin[i18n]
+httpx

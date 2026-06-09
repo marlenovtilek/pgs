@@ -31,6 +31,7 @@ class GuidanceDisplay(Base):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     code: Mapped[str] = mapped_column(String(50), nullable=False, unique=True, index=True)
     sector_id: Mapped[int] = mapped_column(ForeignKey("parking_sectors.id"), nullable=False, index=True)
+    led_device_id: Mapped[int | None] = mapped_column(ForeignKey("led_devices.id"), nullable=True, index=True)
     arrow_direction: Mapped[str] = mapped_column(
         String(20),
         default=ArrowDirection.AHEAD.value,
@@ -52,10 +53,18 @@ class GuidanceDisplay(Base):
         "ParkingSector",
         back_populates="displays",
     )
+    led_device: Mapped["LedDevice | None"] = relationship(
+        "LedDevice",
+        back_populates="displays",
+    )
     zones: Mapped[list["ParkingZone"]] = relationship(
         "ParkingZone",
         secondary=guidance_display_zones,
         back_populates="displays",
+    )
+    command_logs: Mapped[list["LedCommandLog"]] = relationship(
+        "LedCommandLog",
+        back_populates="display",
     )
 
     def __repr__(self) -> str:

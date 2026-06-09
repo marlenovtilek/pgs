@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     api_token: str | None = None
     admin_username: str | None = None
     admin_password: str | None = None
+    led_adapter: str = "mock"
+    led_http_path: str = "/api/v1/led/commands"
+    led_http_timeout: float = 3.0
 
     model_config = SettingsConfigDict(
         env_file=".env",

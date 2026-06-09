@@ -15,9 +15,9 @@ CONFIGURABLE_ARROW_DIRECTIONS = (
 )
 
 ARROW_DIRECTION_CHOICES = [
-    (ArrowDirection.LEFT.value, "Left"),
-    (ArrowDirection.RIGHT.value, "Right"),
-    (ArrowDirection.AHEAD.value, "Ahead"),
+    (ArrowDirection.LEFT.value, "Налево"),
+    (ArrowDirection.RIGHT.value, "Направо"),
+    (ArrowDirection.AHEAD.value, "Прямо"),
 ]
 
 

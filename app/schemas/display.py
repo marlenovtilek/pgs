@@ -21,6 +21,7 @@ class DisplayItem(BaseModel):
     sector_code: str
     display_code: str
     display_title: str
+    led_device_code: str | None = None
     arrow_direction: str
     camera_zone_codes: list[str] = Field(default_factory=list)
     is_active: bool
@@ -45,12 +46,14 @@ class DisplayCreateRequest(BaseModel):
     title: str
     code: str
     sector_code: str
+    led_device_code: str | None = None
     camera_zone_codes: list[str] = Field(default_factory=list)
     arrow_direction: ConfigurableArrowDirection
     is_active: bool = True
 
 class DisplayUpdateRequest(BaseModel):
     title: str | None = None
+    led_device_code: str | None = None
     camera_zone_codes: list[str] | None = None
     arrow_direction: ConfigurableArrowDirection | None = None
     is_active: bool | None = None

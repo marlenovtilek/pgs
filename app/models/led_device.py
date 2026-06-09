@@ -1,0 +1,50 @@
+from datetime import datetime
+
+from sqlalchemy import Boolean, DateTime, Integer, String, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.core.database import Base
+from app.models.admin_repr import admin_select2_text
+
+
+class LedDevice(Base):
+    __tablename__ = "led_devices"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(50), nullable=False, unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    host: Mapped[str] = mapped_column(String(255), nullable=False)
+    port: Mapped[int] = mapped_column(Integer, nullable=False)
+    protocol: Mapped[str] = mapped_column(String(50), default="TCP", nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+    displays: Mapped[list["GuidanceDisplay"]] = relationship(
+        "GuidanceDisplay",
+        back_populates="led_device",
+    )
+    command_logs: Mapped[list["LedCommandLog"]] = relationship(
+        "LedCommandLog",
+        back_populates="device",
+    )
+
+    def __repr__(self) -> str:
+        return f"<LedDevice code={self.code} host={self.host} port={self.port}>"
+
+    def __str__(self) -> str:
+        return self.code
+
+    def __admin_repr__(self, request) -> str:
+        return self.code
+
+    def __admin_select2_repr__(self, request) -> str:
+        return admin_select2_text(self.code)

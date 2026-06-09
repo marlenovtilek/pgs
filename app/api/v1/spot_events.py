@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.adapters.led.mock import mock_led_adapter
+from app.adapters.led.factory import get_led_display_adapter
 from app.core.async_database import get_async_db
 from app.schemas.spot_event import SpotEventRequest, SpotEventResponse
 from app.services.spot_events import AmbiguousSpotCodeError, process_spot_event_async
@@ -23,7 +23,7 @@ async def create_spot_event(
         result = await process_spot_event_async(
             db,
             request,
-            display_port=mock_led_adapter,
+            display_port=get_led_display_adapter(),
         )
     except AmbiguousSpotCodeError as exc:
         raise HTTPException(

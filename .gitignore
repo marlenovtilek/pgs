@@ -11,6 +11,7 @@ htmlcov/
 .codex
 .agents
 AGENTS.md
+CLAUDE.md
 college/
 CONTEXT.md
 QUICKSTART.md

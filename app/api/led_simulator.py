@@ -1,9 +1,9 @@
 LED_SIMULATOR_HTML = """<!doctype html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PGS LED Simulator</title>
+  <title>PGS LED-симулятор</title>
   <style>
     :root {
       color-scheme: dark;
@@ -444,30 +444,30 @@ LED_SIMULATOR_HTML = """<!doctype html>
 <body>
   <header class="topbar">
     <div class="brand">
-      <h1>PGS LED Simulator</h1>
-      <div class="status" id="summary">Loading displays</div>
+      <h1>PGS LED-симулятор</h1>
+      <div class="status" id="summary">Загрузка табло</div>
     </div>
-    <div class="status" id="updated">Waiting for data</div>
+    <div class="status" id="updated">Ожидание данных</div>
   </header>
   <main class="wrap">
     <section class="section">
       <h2 class="section-title">
-        <span>Entry LED Display</span>
-        <span class="status" id="entryCount">0 lines</span>
+        <span>Въездное LED-табло</span>
+        <span class="status" id="entryCount">0 строк</span>
       </h2>
       <div id="entryDisplay" aria-live="polite"></div>
     </section>
     <section class="section">
       <h2 class="section-title">
-        <span>Zone Display Debug</span>
-        <span class="status" id="displayCount">0 displays</span>
+        <span>Навигационные табло</span>
+        <span class="status" id="displayCount">0 табло</span>
       </h2>
       <div class="grid" id="displayGrid" aria-live="polite"></div>
     </section>
     <section class="section">
       <h2 class="section-title">
-        <span>Parking Map</span>
-        <span class="status" id="spotCount">0 spots</span>
+        <span>Карта парковки</span>
+        <span class="status" id="spotCount">0 мест</span>
       </h2>
       <div class="level-grid" id="mapGrid" aria-live="polite"></div>
     </section>
@@ -496,6 +496,62 @@ LED_SIMULATOR_HTML = """<!doctype html>
       return String(status || "unknown").toLowerCase();
     }
 
+    function pluralRu(count, one, few, many) {
+      const abs = Math.abs(count) % 100;
+      const last = abs % 10;
+      if (abs > 10 && abs < 20) {
+        return many;
+      }
+      if (last === 1) {
+        return one;
+      }
+      if (last >= 2 && last <= 4) {
+        return few;
+      }
+      return many;
+    }
+
+    function countText(count, one, few, many) {
+      return `${count} ${pluralRu(count, one, few, many)}`;
+    }
+
+    function directionLabel(direction) {
+      if (direction === "LEFT") {
+        return "налево";
+      }
+      if (direction === "RIGHT") {
+        return "направо";
+      }
+      if (direction === "AHEAD") {
+        return "прямо";
+      }
+      if (direction === "FULL") {
+        return "нет мест";
+      }
+      return String(direction || "");
+    }
+
+    function statusLabel(status) {
+      if (status === "FREE") {
+        return "СВОБОДНО";
+      }
+      if (status === "OCCUPIED") {
+        return "ЗАНЯТО";
+      }
+      if (status === "OFFLINE") {
+        return "ОФЛАЙН";
+      }
+      if (status === "UNKNOWN") {
+        return "НЕИЗВЕСТНО";
+      }
+      return String(status || "");
+    }
+
+    function displayPillText(item) {
+      const direction = directionLabel(item.arrow_direction);
+      return `${item.sector_code} ${direction} ${item.free_spots} P`;
+    }
+
     function arrowSymbolHtml(direction) {
       if (direction === "LEFT") {
         return "&#8592;";
@@ -507,7 +563,7 @@ LED_SIMULATOR_HTML = """<!doctype html>
         return "&#8593;";
       }
       if (direction === "FULL") {
-        return "FULL";
+        return "";
       }
       return escapeHtml(direction || "");
     }
@@ -558,13 +614,13 @@ LED_SIMULATOR_HTML = """<!doctype html>
 
     function renderDisplays(items) {
       if (!items.length) {
-        displayGrid.innerHTML = '<div class="empty">No active display messages</div>';
-        displayCount.textContent = "0 displays";
-        summary.textContent = "0 displays";
+        displayGrid.innerHTML = '<div class="empty">Нет активных сообщений табло</div>';
+        displayCount.textContent = "0 табло";
+        summary.textContent = "0 табло";
         return;
       }
 
-      summary.textContent = `${items.length} display${items.length === 1 ? "" : "s"}`;
+      summary.textContent = countText(items.length, "табло", "табло", "табло");
       displayCount.textContent = summary.textContent;
       displayGrid.innerHTML = items.map((item) => {
         const isFull = item.arrow_direction === "FULL" || item.free_spots === 0;
@@ -580,7 +636,7 @@ LED_SIMULATOR_HTML = """<!doctype html>
               ${parkingSymbolHtml(item)}
             </div>
             <div class="meta">
-              <span class="pill">${escapeHtml(item.sector_code)} ${escapeHtml(item.display_text || item.arrow_direction)}</span>
+              <span class="pill">${escapeHtml(displayPillText(item))}</span>
             </div>
           </article>
         `;
@@ -590,23 +646,23 @@ LED_SIMULATOR_HTML = """<!doctype html>
     function renderEntryDisplay(entry) {
       const lines = entry.lines || [];
       if (!lines.length) {
-        entryDisplay.innerHTML = '<div class="empty">No entry display lines</div>';
-        entryCount.textContent = "0 lines";
+        entryDisplay.innerHTML = '<div class="empty">Нет строк для въездного табло</div>';
+        entryCount.textContent = "0 строк";
         return;
       }
 
-      entryCount.textContent = `${lines.length} line${lines.length === 1 ? "" : "s"}`;
+      entryCount.textContent = countText(lines.length, "строка", "строки", "строк");
       entryDisplay.innerHTML = `
         <article class="display entry-display">
           <div class="display-header">
             <span class="code">${escapeHtml(entry.display_code)}</span>
-            <span class="zone">ENTRY</span>
+            <span class="zone">ВЪЕЗД</span>
           </div>
           <div class="led-face">
             <div class="entry-lines">
               ${lines.map((line) => `<div class="entry-line">${escapeHtml(line)}</div>`).join("")}
             </div>
-            <div class="entry-total">${escapeHtml(entry.free_spots)} total free</div>
+            <div class="entry-total">${escapeHtml(entry.free_spots)} свободно всего</div>
           </div>
           <div class="meta">
             <span class="pill">${escapeHtml(entry.title)}</span>
@@ -629,12 +685,12 @@ LED_SIMULATOR_HTML = """<!doctype html>
     function renderParkingMap(items) {
       const activeItems = items.filter((spot) => spot.is_active);
       if (!activeItems.length) {
-        mapGrid.innerHTML = '<div class="empty">No parking spots</div>';
-        spotCount.textContent = "0 spots";
+        mapGrid.innerHTML = '<div class="empty">Нет парковочных мест</div>';
+        spotCount.textContent = "0 мест";
         return;
       }
 
-      spotCount.textContent = `${activeItems.length} spot${activeItems.length === 1 ? "" : "s"}`;
+      spotCount.textContent = countText(activeItems.length, "место", "места", "мест");
       const levels = groupSpots(activeItems);
       mapGrid.innerHTML = Object.entries(levels).sort(([a], [b]) => a.localeCompare(b)).map(([levelCode, zones]) => {
         const zoneMarkup = Object.entries(zones).sort(([a], [b]) => a.localeCompare(b)).map(([zoneCode, zoneSpots]) => {
@@ -650,17 +706,17 @@ LED_SIMULATOR_HTML = """<!doctype html>
             return String(a.spotNumber).localeCompare(String(b.spotNumber), undefined, { numeric: true });
           });
           const spotMarkup = sortedSpots.map((spot) => `
-            <div class="spot ${statusClass(spot.status)} ${spot.is_disabled ? "disabled" : ""}" title="${escapeHtml(spot.spot_code)} ${escapeHtml(spot.status)}${spot.is_disabled ? " disabled" : ""}">
+            <div class="spot ${statusClass(spot.status)} ${spot.is_disabled ? "disabled" : ""}" title="${escapeHtml(spot.spot_code)} ${escapeHtml(statusLabel(spot.status))}${spot.is_disabled ? " место для инвалидов" : ""}">
               <div class="spot-code">${escapeHtml(spot.displaySpotNumber)}</div>
-              ${spot.is_disabled ? '<div class="spot-badge" aria-label="Disabled parking">♿</div>' : ""}
-              <div class="spot-status">${escapeHtml(spot.status)}</div>
+              ${spot.is_disabled ? '<div class="spot-badge" aria-label="Место для инвалидов">♿</div>' : ""}
+              <div class="spot-status">${escapeHtml(statusLabel(spot.status))}</div>
             </div>
           `).join("");
           return `
             <article class="zone-card">
               <div class="zone-card-header">
-                <div class="zone-card-title">Sector ${escapeHtml(zoneLabel)}</div>
-                <div class="zone-card-counts">${free} free / ${occupied} occupied / ${zoneSpots.length} total</div>
+                <div class="zone-card-title">Сектор ${escapeHtml(zoneLabel)}</div>
+                <div class="zone-card-counts">${free} свободно / ${occupied} занято / ${zoneSpots.length} всего</div>
               </div>
               <div class="spots">
                 ${spotMarkup}
@@ -671,7 +727,7 @@ LED_SIMULATOR_HTML = """<!doctype html>
 
         return `
           <article class="level-card">
-            <div class="level-title">Floor ${escapeHtml(levelCode)}</div>
+            <div class="level-title">Этаж ${escapeHtml(levelCode)}</div>
             <div class="zone-stack">
               ${zoneMarkup}
             </div>
@@ -688,13 +744,13 @@ LED_SIMULATOR_HTML = """<!doctype html>
           fetch("/api/v1/spots", { cache: "no-store" }),
         ]);
         if (!entryResponse.ok) {
-          throw new Error(`entry display HTTP ${entryResponse.status}`);
+          throw new Error(`въездное табло HTTP ${entryResponse.status}`);
         }
         if (!displayResponse.ok) {
-          throw new Error(`displays HTTP ${displayResponse.status}`);
+          throw new Error(`табло HTTP ${displayResponse.status}`);
         }
         if (!spotsResponse.ok) {
-          throw new Error(`spots HTTP ${spotsResponse.status}`);
+          throw new Error(`парковочные места HTTP ${spotsResponse.status}`);
         }
         const entryData = await entryResponse.json();
         const displayData = await displayResponse.json();
@@ -702,9 +758,9 @@ LED_SIMULATOR_HTML = """<!doctype html>
         renderEntryDisplay(entryData);
         renderDisplays(displayData.items || []);
         renderParkingMap(spotsData.items || []);
-        updated.textContent = `Updated ${new Date().toLocaleTimeString()}`;
+        updated.textContent = `Обновлено ${new Date().toLocaleTimeString("ru-RU")}`;
       } catch (error) {
-        summary.textContent = "Connection error";
+        summary.textContent = "Ошибка подключения";
         updated.textContent = error.message;
       }
     }

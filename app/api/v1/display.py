@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.async_database import get_async_db
 from app.models.guidance_display import GuidanceDisplay, guidance_display_zones
+from app.models.led_device import LedDevice
 from app.models.parking_sector import ParkingSector
 from app.models.parking_zone import ParkingZone
 from app.schemas.display import (
@@ -47,10 +48,17 @@ async def _display_item_from_display(
     display: GuidanceDisplay,
     sector: ParkingSector,
 ) -> DisplayItem:
+    led_device_code = None
+    if display.led_device_id is not None:
+        led_device_code = await db.scalar(
+            select(LedDevice.code).where(LedDevice.id == display.led_device_id)
+        )
+
     return DisplayItem(
         sector_code=sector.code,
         display_code=display.code,
         display_title=display.title,
+        led_device_code=led_device_code,
         arrow_direction=display.arrow_direction,
         camera_zone_codes=await _camera_zone_codes_for_display(db, display.id),
         is_active=display.is_active,
@@ -84,6 +92,21 @@ async def _camera_zone_ids_for_codes(
         )
 
     return [zone_ids_by_code[code] for code in unique_codes]
+
+
+async def _led_device_id_for_code(
+    db: AsyncSession,
+    led_device_code: str | None,
+) -> int | None:
+    if led_device_code is None:
+        return None
+
+    led_device_id = await db.scalar(
+        select(LedDevice.id).where(LedDevice.code == led_device_code)
+    )
+    if led_device_id is None:
+        raise HTTPException(status_code=404, detail="LED device not found.")
+    return led_device_id
 
 
 async def _replace_display_camera_zones(
@@ -216,6 +239,7 @@ async def create_display(
         title=request.title,
         code=request.code,
         sector_id=sector.id,
+        led_device_id=await _led_device_id_for_code(db, request.led_device_code),
         arrow_direction=request.arrow_direction.value,
         is_active=request.is_active,
     )
@@ -290,6 +314,9 @@ async def update_display(
 
     if request.title is not None:
         display.title = request.title
+
+    if "led_device_code" in request.model_fields_set:
+        display.led_device_id = await _led_device_id_for_code(db, request.led_device_code)
 
     if request.arrow_direction is not None:
         display.arrow_direction = request.arrow_direction.value

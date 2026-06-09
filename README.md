@@ -42,6 +42,7 @@ flowchart LR
     Service --> LedPort[DisplayCommandPort]
     LedPort --> MockLED[Mock LED adapter]
     MockLED --> Simulator[Admin LED Simulator]
+    LedPort --> FakeLED[Fake HTTP LED server]
     LedPort -. future .-> RealLED[Real LED hardware adapter]
 ```
 
@@ -77,6 +78,7 @@ flowchart TB
 | `pgs-parking-bootstrap` | demo-only сервис, создает пример этажей/секторов/табло только при `--profile demo` |
 | `pgs-api` | FastAPI API, админка и LED simulator |
 | `pgs-mqtt-consumer` | слушает MQTT, обрабатывает события и создает структуру парковки из валидных кодов мест |
+| `pgs-fake-led` | fake HTTP LED server для проверки отправки команд без физического табло |
 
 ## Модель парковки
 
@@ -88,8 +90,11 @@ erDiagram
     ParkingSector ||--o{ ParkingZone : contains
     ParkingZone ||--o{ ParkingSpot : contains
     ParkingSector ||--o{ GuidanceDisplay : places
+    LedDevice ||--o{ GuidanceDisplay : drives
     GuidanceDisplay ||--o{ GuidanceDisplayZone : connects
     ParkingZone ||--o{ GuidanceDisplayZone : feeds
+    GuidanceDisplay ||--o{ LedCommandLog : logs
+    LedDevice ||--o{ LedCommandLog : logs
     ParkingSpot ||--o{ SpotOccupancyEvent : has
 
     ParkingFloor {
@@ -128,9 +133,29 @@ erDiagram
     GuidanceDisplay {
         int id
         int sector_id
+        int led_device_id
         string code
         string arrow_direction
         bool is_active
+    }
+
+    LedDevice {
+        int id
+        string code
+        string host
+        int port
+        string protocol
+        bool is_active
+    }
+
+    LedCommandLog {
+        int id
+        int display_id
+        int device_id
+        string display_code
+        string device_code
+        string status
+        json payload
     }
 
     GuidanceDisplayZone {
@@ -445,18 +470,56 @@ LED simulator доступен в админке:
 - состояние parking spots;
 - disabled parking badge для специальных мест.
 
-### Реальное LED-оборудование
+### LED-оборудование
 
-Сейчас готова бизнес-логика и mock adapter:
+Сейчас готова бизнес-логика, mock adapter, HTTP adapter, fake LED server, конфигурация LED-устройств и журнал команд:
 
 ```text
 app/adapters/led/mock.py
+app/adapters/led/http.py
+app/adapters/led/factory.py
 app/adapters/led/vendor.py
+app/simulation/fake_led_server.py
+app/models/led_device.py
+app/models/led_command_log.py
 ```
 
-Реальная отправка на физическое LED-оборудование пока не реализована. Для этого нужен протокол/API/SDK от поставщика оборудования, например для `MW7725-FO-D` или `PKS2502-RG`.
+`LedDevice` хранит физические параметры табло:
 
-Будущий adapter должен реализовать порт:
+```text
+code
+host
+port
+protocol
+is_active
+```
+
+`GuidanceDisplay` может быть привязан к `LedDevice`, а каждая попытка отправки команды записывается в `LedCommandLog` со статусом:
+
+```text
+PENDING
+SENT
+FAILED
+```
+
+Поддерживаемые режимы adapter:
+
+| Adapter | Назначение |
+| --- | --- |
+| `mock` | Ничего не отправляет наружу, только сохраняет команду в памяти и пишет `LedCommandLog` |
+| `http` | Делает HTTP POST на `LedDevice.host:LedDevice.port` по пути `LED_HTTP_PATH` |
+
+Режим выбирается через `.env`:
+
+```env
+LED_ADAPTER=mock
+LED_HTTP_PATH=/api/v1/led/commands
+LED_HTTP_TIMEOUT=3.0
+```
+
+HTTP adapter уже можно использовать с fake LED server. Реальная интеграция с физическими `MW7725-FO-D` / `PKS2502-RG` пока не реализована, потому что для нее нужен точный протокол/API/SDK от поставщика.
+
+Будущий vendor adapter для UNV должен реализовать тот же порт:
 
 ```text
 DisplayCommandPort
@@ -472,8 +535,60 @@ DisplayCommandPort
   "free_spots": 93,
   "parking_symbol": "P",
   "display_text": "LEFT 93 P",
-  "message": "B1-A 93"
+  "message": "B1-A 93",
+  "device_code": "LED-LINE-01-RIGHT",
+  "device_host": "pgs-fake-led",
+  "device_port": 9000,
+  "device_protocol": "HTTP"
 }
+```
+
+### Fake HTTP LED server
+
+Fake server нужен, чтобы проверить всю PGS-цепочку без реального табло:
+
+```text
+MQTT / spot event
+-> PGS updates spot
+-> PGS counts free spots
+-> PGS builds LED command
+-> HTTP adapter sends POST
+-> fake LED server receives command
+-> LedCommandLog gets SENT or FAILED
+```
+
+Запуск:
+
+```bash
+docker compose --profile fake-led up -d pgs-fake-led
+```
+
+В `.env` переключить adapter:
+
+```env
+LED_ADAPTER=http
+LED_HTTP_PATH=/api/v1/led/commands
+LED_HTTP_TIMEOUT=3.0
+```
+
+В админке создать `LED Device`:
+
+```text
+code: LED-B1-A
+host: pgs-fake-led
+port: 9000
+protocol: HTTP
+is_active: true
+```
+
+Потом привязать этот `LED Device` к нужному `Guidance Display`.
+
+Проверить fake server:
+
+```bash
+curl http://localhost:9000/health
+curl http://localhost:9000/api/v1/led/commands
+docker compose logs pgs-fake-led
 ```
 
 ## REST API
@@ -608,7 +723,9 @@ http://localhost:8010/admin/login
 - Sectors;
 - Camera Zones;
 - Parking Spots;
+- LED Devices;
 - Guidance Displays;
+- LED Command Logs;
 - Spot Events;
 - Users.
 
@@ -617,6 +734,7 @@ http://localhost:8010/admin/login
 ```text
 Guidance Display
   -> sector
+  -> led_device
   -> zones
   -> code
   -> title
@@ -698,6 +816,10 @@ AUTH_REGISTRATION_ENABLED=false
 API_TOKEN=pgs-dev-token
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=admin
+
+LED_ADAPTER=mock
+LED_HTTP_PATH=/api/v1/led/commands
+LED_HTTP_TIMEOUT=3.0
 ```
 
 ### 2. Проверить Docker network
@@ -886,7 +1008,7 @@ docker compose run --rm -v ./tests:/app/tests pgs-api python -m pytest
 Последняя проверка проекта:
 
 ```text
-66 passed
+70 passed
 ```
 
 ## Миграции
@@ -905,7 +1027,8 @@ docker compose run --rm pgs-migrate
 - удаление активного camera-layer;
 - рефакторинг иерархии `floor -> sector -> camera zone -> spot`;
 - создание таблицы users;
-- ограничение `GuidanceDisplay.arrow_direction` на `LEFT`, `RIGHT`, `AHEAD`.
+- ограничение `GuidanceDisplay.arrow_direction` на `LEFT`, `RIGHT`, `AHEAD`;
+- создание `led_devices` и `led_command_logs`.
 
 ## Основные файлы
 
@@ -921,10 +1044,15 @@ app/services/spot_events.py          - обработка spot events
 app/services/display.py              - расчет LED сообщений
 app/services/led.py                  - публикация LED команд
 app/adapters/led/mock.py             - mock LED adapter
+app/adapters/led/http.py             - HTTP LED adapter для fake server или будущего HTTP API
+app/adapters/led/factory.py          - выбор LED adapter через settings
 app/adapters/led/vendor.py           - будущий vendor adapter
+app/models/led_device.py             - конфигурация физических LED-устройств
+app/models/led_command_log.py        - журнал отправки LED-команд
 app/models/                          - SQLAlchemy models
 app/simulation/bootstrap_admin_user.py - создание первого admin-пользователя
 app/simulation/bootstrap_parking_config.py - demo-конфигурация парковки
+app/simulation/fake_led_server.py    - fake HTTP LED server
 app/api/led_simulator.py             - HTML/JS LED simulator
 ```
 
@@ -941,6 +1069,10 @@ app/api/led_simulator.py             - HTML/JS LED simulator
 - Starlette Admin;
 - LED simulator;
 - логика маленьких LED-табло `arrow + count + P`;
+- конфигурация LED devices;
+- журнал LED command logs;
+- HTTP LED adapter для fake server;
+- fake HTTP LED server для end-to-end проверки без железа;
 - entry display summary;
 - динамический auto-create `floor -> sector -> camera zone -> spot` из MQTT;
 - отдельный admin bootstrap;
@@ -950,9 +1082,22 @@ app/api/led_simulator.py             - HTML/JS LED simulator
 Не готово:
 
 - реальная отправка команд на физические LED-табло;
-- vendor adapter для конкретного оборудования;
 - точная интеграция с протоколом `MW7725-FO-D` / `PKS2502-RG`;
 - умная маршрутизация, где PGS сам выбирает лучший сектор вместо статической стрелки.
+
+## Handoff для продолжения
+
+Для продолжения работы другим разработчиком или AI-ассистентом:
+
+```text
+1. Прочитать README.md.
+2. Если локально есть CONTEXT.md, прочитать его как актуальный handoff.
+3. Если нужен быстрый запуск, открыть QUICKSTART.md.
+4. Не возвращать старую модель row/zone_code: текущая модель floor -> sector -> camera zone -> spot.
+5. Не подключать UNV SDK внутрь PGS без API/protocol для LED-табло.
+```
+
+`CONTEXT.md` и `QUICKSTART.md` могут быть локальными файлами и не обязаны попадать в GitHub.
 
 ## Будущая интеграция с реальным LED
 
@@ -970,7 +1115,7 @@ app/api/led_simulator.py             - HTML/JS LED simulator
 }
 ```
 
-Следующий шаг - заменить mock adapter на реальный adapter:
+Следующий шаг - реализовать реальный adapter, который будет брать `LedDevice.host`, `LedDevice.port` и `LedDevice.protocol` из привязанного устройства:
 
 ```text
 DisplayCommandPort

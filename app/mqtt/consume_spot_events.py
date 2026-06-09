@@ -2,7 +2,7 @@ import argparse
 import asyncio
 
 from app.adapters.event_bus.mqtt import AsyncMqttSubscriber, MqttMessage, default_client_id
-from app.adapters.led.mock import mock_led_adapter
+from app.adapters.led.factory import get_led_display_adapter
 from app.contracts.mqtt_topics import SPOT_STATUS_TOPIC
 from app.core.async_database import AsyncSessionLocal
 from app.core.config import settings
@@ -54,7 +54,7 @@ async def handle_message(
             result = await process_spot_event_async(
                 db,
                 request,
-                display_port=mock_led_adapter,
+                display_port=get_led_display_adapter(),
             )
         except LookupError:
             print(

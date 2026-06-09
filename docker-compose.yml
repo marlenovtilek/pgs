@@ -69,6 +69,23 @@ services:
       - smartparking_db_network
     restart: unless-stopped
 
+  pgs-fake-led:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pgs-fake-led
+    working_dir: /app
+    command: uvicorn app.simulation.fake_led_server:app --host 0.0.0.0 --port 9000
+    profiles:
+      - fake-led
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./app:/app/app
+    networks:
+      - default
+    restart: unless-stopped
+
   pgs-admin-bootstrap:
     build:
       context: .

@@ -19,13 +19,13 @@ class PGSAdminAuthProvider(AuthProvider):
         response: Response,
     ) -> Response:
         if not username or not password:
-            raise LoginFailed("Invalid username or password")
+            raise LoginFailed("Неверный логин или пароль")
 
         with SessionLocal() as db:
             user = authenticate_user(db, username=username, password=password)
 
         if user is None:
-            raise LoginFailed("Invalid username or password")
+            raise LoginFailed("Неверный логин или пароль")
 
         response.set_cookie(
             key=settings.auth_cookie_name,
