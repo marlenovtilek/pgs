@@ -23,8 +23,8 @@ FLOOR_SECTOR_ZONE_CODE_PATTERN = re.compile(r"^[A-Za-z]\d+-[A-Za-z]+$")
 PARKING_SYMBOL = "P"
 
 
-def _display_statuses(db: Session, display_id: int) -> list[SpotStatus]:
-    rows = db.execute(
+def _display_statuses_statement(display_id: int):
+    return (
         select(ParkingSpot.status)
         .join(ParkingZone, ParkingSpot.zone_id == ParkingZone.id)
         .join(guidance_display_zones, guidance_display_zones.c.zone_id == ParkingZone.id)
@@ -33,25 +33,16 @@ def _display_statuses(db: Session, display_id: int) -> list[SpotStatus]:
             ParkingZone.is_active.is_(True),
             ParkingSpot.is_active.is_(True),
         )
-    ).all()
+    )
 
+
+def _display_statuses(db: Session, display_id: int) -> list[SpotStatus]:
+    rows = db.execute(_display_statuses_statement(display_id)).all()
     return [SpotStatus(row.status) for row in rows]
 
 
 async def _display_statuses_async(db: AsyncSession, display_id: int) -> list[SpotStatus]:
-    rows = (
-        await db.execute(
-            select(ParkingSpot.status)
-            .join(ParkingZone, ParkingSpot.zone_id == ParkingZone.id)
-            .join(guidance_display_zones, guidance_display_zones.c.zone_id == ParkingZone.id)
-            .where(
-                guidance_display_zones.c.display_id == display_id,
-                ParkingZone.is_active.is_(True),
-                ParkingSpot.is_active.is_(True),
-            )
-        )
-    ).all()
-
+    rows = (await db.execute(_display_statuses_statement(display_id))).all()
     return [SpotStatus(row.status) for row in rows]
 
 
@@ -240,12 +231,11 @@ async def get_display_message_async(
     return await get_display_message_by_display_async(db, display, sector)
 
 
-def list_display_messages(
-    db: Session,
+def _list_display_messages_statement(
     *,
-    sector_code: str | None = None,
-    is_active: bool | None = None,
-) -> list[DisplayMessageResponse]:
+    sector_code: str | None,
+    is_active: bool | None,
+):
     statement = (
         select(GuidanceDisplay, ParkingSector)
         .join(ParkingSector, GuidanceDisplay.sector_id == ParkingSector.id)
@@ -263,20 +253,14 @@ def list_display_messages(
     if is_active is not None:
         statement = statement.where(GuidanceDisplay.is_active == is_active)
 
-    rows = db.execute(statement).all()
-
-    return [
-        get_display_message_by_display(db, display, zone)
-        for display, zone in rows
-    ]
+    return statement
 
 
-def list_display_messages_for_camera_zone(
-    db: Session,
+def _list_display_messages_for_camera_zone_statement(
     *,
     camera_zone_id: int,
-    is_active: bool | None = None,
-) -> list[DisplayMessageResponse]:
+    is_active: bool | None,
+):
     statement = (
         select(GuidanceDisplay, ParkingSector)
         .join(ParkingSector, GuidanceDisplay.sector_id == ParkingSector.id)
@@ -295,12 +279,33 @@ def list_display_messages_for_camera_zone(
     if is_active is not None:
         statement = statement.where(GuidanceDisplay.is_active == is_active)
 
-    rows = db.execute(statement).all()
+    return statement
 
-    return [
-        get_display_message_by_display(db, display, sector)
-        for display, sector in rows
-    ]
+
+def list_display_messages(
+    db: Session,
+    *,
+    sector_code: str | None = None,
+    is_active: bool | None = None,
+) -> list[DisplayMessageResponse]:
+    rows = db.execute(
+        _list_display_messages_statement(sector_code=sector_code, is_active=is_active)
+    ).all()
+    return [get_display_message_by_display(db, display, sector) for display, sector in rows]
+
+
+def list_display_messages_for_camera_zone(
+    db: Session,
+    *,
+    camera_zone_id: int,
+    is_active: bool | None = None,
+) -> list[DisplayMessageResponse]:
+    rows = db.execute(
+        _list_display_messages_for_camera_zone_statement(
+            camera_zone_id=camera_zone_id, is_active=is_active
+        )
+    ).all()
+    return [get_display_message_by_display(db, display, sector) for display, sector in rows]
 
 
 async def list_display_messages_async(
@@ -309,28 +314,14 @@ async def list_display_messages_async(
     sector_code: str | None = None,
     is_active: bool | None = None,
 ) -> list[DisplayMessageResponse]:
-    statement = (
-        select(GuidanceDisplay, ParkingSector)
-        .join(ParkingSector, GuidanceDisplay.sector_id == ParkingSector.id)
-        .join(ParkingFloor, ParkingSector.floor_id == ParkingFloor.id)
-        .where(
-            ParkingSector.is_active.is_(True),
-            ParkingFloor.is_active.is_(True),
+    rows = (
+        await db.execute(
+            _list_display_messages_statement(sector_code=sector_code, is_active=is_active)
         )
-        .order_by(GuidanceDisplay.code)
-    )
-
-    if sector_code is not None:
-        statement = statement.where(ParkingSector.code == sector_code)
-
-    if is_active is not None:
-        statement = statement.where(GuidanceDisplay.is_active == is_active)
-
-    rows = (await db.execute(statement)).all()
-
+    ).all()
     return [
-        await get_display_message_by_display_async(db, display, zone)
-        for display, zone in rows
+        await get_display_message_by_display_async(db, display, sector)
+        for display, sector in rows
     ]
 
 
@@ -340,26 +331,13 @@ async def list_display_messages_for_camera_zone_async(
     camera_zone_id: int,
     is_active: bool | None = None,
 ) -> list[DisplayMessageResponse]:
-    statement = (
-        select(GuidanceDisplay, ParkingSector)
-        .join(ParkingSector, GuidanceDisplay.sector_id == ParkingSector.id)
-        .join(ParkingFloor, ParkingSector.floor_id == ParkingFloor.id)
-        .join(guidance_display_zones, guidance_display_zones.c.display_id == GuidanceDisplay.id)
-        .join(ParkingZone, guidance_display_zones.c.zone_id == ParkingZone.id)
-        .where(
-            guidance_display_zones.c.zone_id == camera_zone_id,
-            ParkingSector.is_active.is_(True),
-            ParkingFloor.is_active.is_(True),
-            ParkingZone.is_active.is_(True),
+    rows = (
+        await db.execute(
+            _list_display_messages_for_camera_zone_statement(
+                camera_zone_id=camera_zone_id, is_active=is_active
+            )
         )
-        .order_by(GuidanceDisplay.code)
-    )
-
-    if is_active is not None:
-        statement = statement.where(GuidanceDisplay.is_active == is_active)
-
-    rows = (await db.execute(statement)).all()
-
+    ).all()
     return [
         await get_display_message_by_display_async(db, display, sector)
         for display, sector in rows

@@ -50,14 +50,18 @@ def test_get_spot_by_code_returns_detail_with_optional_scope(db_session):
 
 
 def test_list_spots_marks_disabled_parking_places(db_session):
-    _, camera_zone = seed_sector_with_camera_zone(db_session, sector_code="B1-B", camera_zone_code="B1-B")
-    seed_spot(db_session, camera_zone, code="B1-B001", status="FREE")
-    seed_spot(db_session, camera_zone, code="B1-B011", status="FREE")
+    _, camera_zone_01 = seed_sector_with_camera_zone(
+        db_session, sector_code="B1-B", camera_zone_code="B1-B-01"
+    )
+    _, camera_zone_03 = seed_sector_with_camera_zone(
+        db_session, sector_code="B1-B", camera_zone_code="B1-B-03"
+    )
+    seed_spot(db_session, camera_zone_01, code="B1-B-01-1", status="FREE")
+    seed_spot(db_session, camera_zone_03, code="B1-B-03-1", status="FREE")
     db_session.commit()
 
     response = list_spots(db_session, sector_code="B1-B")
 
-    assert response.items[0].spot_code == "B1-B001"
-    assert response.items[0].is_disabled is True
-    assert response.items[1].spot_code == "B1-B011"
-    assert response.items[1].is_disabled is False
+    by_code = {item.spot_code: item.is_disabled for item in response.items}
+    assert by_code["B1-B-01-1"] is True
+    assert by_code["B1-B-03-1"] is False

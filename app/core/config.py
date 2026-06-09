@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     led_adapter: str = "mock"
     led_http_path: str = "/api/v1/led/commands"
     led_http_timeout: float = 3.0
+    # Comma-separated spot codes shown as disabled/special places.
+    # Empty/None falls back to the built-in default set in app/services/spots.py.
+    disabled_spot_codes: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

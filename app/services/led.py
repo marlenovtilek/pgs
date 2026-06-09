@@ -36,6 +36,27 @@ def _message_payload(message) -> dict[str, Any]:
     }
 
 
+def _new_command_log(message, display, device, payload: dict[str, Any]) -> LedCommandLog:
+    return LedCommandLog(
+        display_id=display.id if display is not None else None,
+        device_id=device.id if device is not None else None,
+        display_code=message.display_code,
+        device_code=device.code if device is not None else None,
+        sector_code=message.sector_code,
+        status="PENDING",
+        payload=payload,
+    )
+
+
+def _device_kwargs(device) -> dict[str, Any]:
+    return {
+        "device_code": device.code if device is not None else None,
+        "device_host": device.host if device is not None else None,
+        "device_port": device.port if device is not None else None,
+        "device_protocol": device.protocol if device is not None else None,
+    }
+
+
 def _display_target(
     db: Session,
     display_code: str,
@@ -74,15 +95,7 @@ async def _send_display_message(
 ) -> bool:
     display, device = _display_target(db, message.display_code)
     payload = _message_payload(message)
-    log = LedCommandLog(
-        display_id=display.id if display is not None else None,
-        device_id=device.id if device is not None else None,
-        display_code=message.display_code,
-        device_code=device.code if device is not None else None,
-        sector_code=message.sector_code,
-        status="PENDING",
-        payload=payload,
-    )
+    log = _new_command_log(message, display, device, payload)
     db.add(log)
     db.flush()
 
@@ -98,13 +111,7 @@ async def _send_display_message(
         return False
 
     try:
-        await display_port.show_sector_summary(
-            **payload,
-            device_code=device.code if device is not None else None,
-            device_host=device.host if device is not None else None,
-            device_port=device.port if device is not None else None,
-            device_protocol=device.protocol if device is not None else None,
-        )
+        await display_port.show_sector_summary(**payload, **_device_kwargs(device))
     except Exception as exc:
         logger.warning(
             "led_send_failed display=%s device=%s error=%s",
@@ -131,15 +138,7 @@ async def _send_display_message_async(
 ) -> bool:
     display, device = await _display_target_async(db, message.display_code)
     payload = _message_payload(message)
-    log = LedCommandLog(
-        display_id=display.id if display is not None else None,
-        device_id=device.id if device is not None else None,
-        display_code=message.display_code,
-        device_code=device.code if device is not None else None,
-        sector_code=message.sector_code,
-        status="PENDING",
-        payload=payload,
-    )
+    log = _new_command_log(message, display, device, payload)
     db.add(log)
     await db.flush()
 
@@ -155,13 +154,7 @@ async def _send_display_message_async(
         return False
 
     try:
-        await display_port.show_sector_summary(
-            **payload,
-            device_code=device.code if device is not None else None,
-            device_host=device.host if device is not None else None,
-            device_port=device.port if device is not None else None,
-            device_protocol=device.protocol if device is not None else None,
-        )
+        await display_port.show_sector_summary(**payload, **_device_kwargs(device))
     except Exception as exc:
         logger.warning(
             "led_send_failed display=%s device=%s error=%s",
