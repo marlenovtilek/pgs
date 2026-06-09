@@ -104,6 +104,39 @@ def test_publish_spot_display_messages_sends_only_connected_display_commands(db_
     assert adapter.commands[0].display_text == "LEFT 1 P"
 
 
+def test_publish_sector_display_messages_marks_inactive_device_failed(db_session):
+    zone, camera_zone = seed_sector_with_camera_zone(db_session)
+    led_device = seed_led_device(db_session, code="LED-OFF", is_active=False)
+    seed_spot(db_session, camera_zone, code="A-001", status="FREE")
+    seed_display(
+        db_session,
+        zone,
+        code="ACTIVE",
+        arrow_direction="LEFT",
+        led_device=led_device,
+        is_active=True,
+    )
+    db_session.commit()
+    adapter = MockLedDisplayAdapter()
+
+    sent = asyncio.run(
+        publish_sector_display_messages(
+            db_session,
+            sector_id=zone.id,
+            display_port=adapter,
+        )
+    )
+
+    assert sent == 0
+    assert adapter.commands == []
+    log = db_session.query(LedCommandLog).one()
+    assert log.display_code == "ACTIVE"
+    assert log.device_code == "LED-OFF"
+    assert log.status == "FAILED"
+    assert log.error_message == "LED device is inactive."
+    assert log.sent_at is None
+
+
 def test_publish_sector_display_messages_logs_failed_command(db_session):
     zone, camera_zone = seed_sector_with_camera_zone(db_session)
     seed_spot(db_session, camera_zone, code="A-001", status="FREE")

@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from typing import Any
 
@@ -18,6 +19,9 @@ from app.services.display import (
     list_display_messages_for_camera_zone,
     list_display_messages_for_camera_zone_async,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 def _message_payload(message) -> dict[str, Any]:
@@ -83,6 +87,11 @@ async def _send_display_message(
     db.flush()
 
     if device is not None and not device.is_active:
+        logger.warning(
+            "led_send_skipped display=%s device=%s reason=inactive_device",
+            message.display_code,
+            device.code,
+        )
         log.status = "FAILED"
         log.error_message = "LED device is inactive."
         db.commit()
@@ -97,6 +106,12 @@ async def _send_display_message(
             device_protocol=device.protocol if device is not None else None,
         )
     except Exception as exc:
+        logger.warning(
+            "led_send_failed display=%s device=%s error=%s",
+            message.display_code,
+            device.code if device is not None else None,
+            exc,
+        )
         log.status = "FAILED"
         log.error_message = str(exc)
         db.commit()
@@ -129,6 +144,11 @@ async def _send_display_message_async(
     await db.flush()
 
     if device is not None and not device.is_active:
+        logger.warning(
+            "led_send_skipped display=%s device=%s reason=inactive_device",
+            message.display_code,
+            device.code,
+        )
         log.status = "FAILED"
         log.error_message = "LED device is inactive."
         await db.commit()
@@ -143,6 +163,12 @@ async def _send_display_message_async(
             device_protocol=device.protocol if device is not None else None,
         )
     except Exception as exc:
+        logger.warning(
+            "led_send_failed display=%s device=%s error=%s",
+            message.display_code,
+            device.code if device is not None else None,
+            exc,
+        )
         log.status = "FAILED"
         log.error_message = str(exc)
         await db.commit()

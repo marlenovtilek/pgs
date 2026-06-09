@@ -189,3 +189,34 @@ def test_ensure_mqtt_parking_config_is_idempotent(db_session):
     assert db_session.query(ParkingSector).count() == 1
     assert db_session.query(ParkingZone).count() == 1
     assert db_session.query(ParkingSpot).count() == 1
+
+
+def test_ensure_mqtt_parking_config_retries_on_integrity_error(monkeypatch):
+    from unittest.mock import MagicMock
+
+    from sqlalchemy.exc import IntegrityError
+
+    import app.services.mqtt_spot_events as mqtt_spot_events_module
+
+    calls = {"n": 0}
+
+    def fake_inner(db, request, *, create_missing_floor_sector=False):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise IntegrityError("INSERT", {}, Exception("duplicate camera zone"))
+        return False
+
+    monkeypatch.setattr(
+        mqtt_spot_events_module, "_ensure_mqtt_parking_config", fake_inner
+    )
+
+    db = MagicMock()
+    request = MagicMock()
+    request.spot_code = "B1-A-01-1"
+
+    # First inner call raises IntegrityError (race), wrapper rolls back and retries.
+    result = mqtt_spot_events_module.ensure_mqtt_parking_config(db, request)
+
+    assert result is False
+    assert calls["n"] == 2
+    db.rollback.assert_called_once()

@@ -1,7 +1,9 @@
+import logging
 from datetime import datetime
 from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
@@ -25,6 +27,9 @@ from app.services.parking_structure import (
     sort_order_from_code,
     split_sector_code,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 MQTT_STATUS_MAP = {
@@ -118,6 +123,27 @@ def ensure_mqtt_parking_config(
     *,
     create_missing_floor_sector: bool = False,
 ) -> bool:
+    try:
+        return _ensure_mqtt_parking_config(
+            db, request, create_missing_floor_sector=create_missing_floor_sector
+        )
+    except IntegrityError:
+        db.rollback()
+        logger.warning(
+            "auto_create_race spot_code=%s, retrying after rollback",
+            request.spot_code,
+        )
+        return _ensure_mqtt_parking_config(
+            db, request, create_missing_floor_sector=create_missing_floor_sector
+        )
+
+
+def _ensure_mqtt_parking_config(
+    db: Session,
+    request: SpotEventRequest,
+    *,
+    create_missing_floor_sector: bool = False,
+) -> bool:
     sector_code = request.sector_code
     if sector_code is None:
         raise ValueError("Cannot auto-create MQTT spot without sector_code.")
@@ -149,6 +175,12 @@ def ensure_mqtt_parking_config(
         db.flush()
         created = True
     elif zone.sector_id != sector.id:
+        logger.warning(
+            "camera_zone_reassigned code=%s from_sector_id=%s to_sector_id=%s",
+            camera_zone_code,
+            zone.sector_id,
+            sector.id,
+        )
         zone.sector_id = sector.id
         created = True
     elif not zone.is_active:
@@ -187,6 +219,27 @@ async def ensure_mqtt_parking_config_async(
     *,
     create_missing_floor_sector: bool = False,
 ) -> bool:
+    try:
+        return await _ensure_mqtt_parking_config_async(
+            db, request, create_missing_floor_sector=create_missing_floor_sector
+        )
+    except IntegrityError:
+        await db.rollback()
+        logger.warning(
+            "auto_create_race spot_code=%s, retrying after rollback",
+            request.spot_code,
+        )
+        return await _ensure_mqtt_parking_config_async(
+            db, request, create_missing_floor_sector=create_missing_floor_sector
+        )
+
+
+async def _ensure_mqtt_parking_config_async(
+    db: AsyncSession,
+    request: SpotEventRequest,
+    *,
+    create_missing_floor_sector: bool = False,
+) -> bool:
     sector_code = request.sector_code
     if sector_code is None:
         raise ValueError("Cannot auto-create MQTT spot without sector_code.")
@@ -218,6 +271,12 @@ async def ensure_mqtt_parking_config_async(
         await db.flush()
         created = True
     elif zone.sector_id != sector.id:
+        logger.warning(
+            "camera_zone_reassigned code=%s from_sector_id=%s to_sector_id=%s",
+            camera_zone_code,
+            zone.sector_id,
+            sector.id,
+        )
         zone.sector_id = sector.id
         created = True
     elif not zone.is_active:

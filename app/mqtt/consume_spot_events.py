@@ -1,5 +1,8 @@
 import argparse
 import asyncio
+import logging
+
+from sqlalchemy.exc import IntegrityError
 
 from app.adapters.event_bus.mqtt import AsyncMqttSubscriber, MqttMessage, default_client_id
 from app.adapters.led.factory import get_led_display_adapter
@@ -13,6 +16,9 @@ from app.services.mqtt_spot_events import (
 from app.services.spot_events import AmbiguousSpotCodeError, process_spot_event_async
 
 
+logger = logging.getLogger(__name__)
+
+
 async def handle_message(
     message: MqttMessage,
     *,
@@ -20,7 +26,11 @@ async def handle_message(
     auto_create_floor_sector: bool = False,
 ) -> None:
     if not isinstance(message.payload, dict):
-        print(f"ignored non-json topic={message.topic} payload={message.raw_payload}")
+        logger.warning(
+            "ignored non-json topic=%s payload=%s",
+            message.topic,
+            message.raw_payload,
+        )
         return
 
     try:
@@ -29,7 +39,7 @@ async def handle_message(
             payload=message.payload,
         )
     except ValueError as exc:
-        print(f"invalid topic={message.topic} error={exc}")
+        logger.warning("invalid topic=%s error=%s", message.topic, exc)
         return
 
     async with AsyncSessionLocal() as db:
@@ -41,13 +51,21 @@ async def handle_message(
                     create_missing_floor_sector=auto_create_floor_sector,
                 )
             except ValueError as exc:
-                print(f"auto_create_failed spot_code={request.spot_code} error={exc}")
+                logger.warning(
+                    "auto_create_failed spot_code=%s error=%s", request.spot_code, exc
+                )
+                return
+            except IntegrityError as exc:
+                await db.rollback()
+                logger.warning(
+                    "auto_create_conflict spot_code=%s error=%s", request.spot_code, exc
+                )
                 return
             if created:
-                print(
-                    "auto_created "
-                    f"spot_code={request.spot_code} "
-                    f"sector_code={request.sector_code}"
+                logger.info(
+                    "auto_created spot_code=%s sector_code=%s",
+                    request.spot_code,
+                    request.sector_code,
                 )
 
         try:
@@ -57,28 +75,27 @@ async def handle_message(
                 display_port=get_led_display_adapter(),
             )
         except LookupError:
-            print(
-                "not_found "
-                f"spot_code={request.spot_code} "
-                f"sector_code={request.sector_code} "
-                f"status={request.status.value}"
+            logger.warning(
+                "not_found spot_code=%s sector_code=%s status=%s",
+                request.spot_code,
+                request.sector_code,
+                request.status.value,
             )
             return
         except AmbiguousSpotCodeError as exc:
-            print(
-                "ambiguous "
-                f"spot_code={exc.spot_code} "
-                f"sector_code={request.sector_code}"
+            logger.warning(
+                "ambiguous spot_code=%s sector_code=%s",
+                exc.spot_code,
+                request.sector_code,
             )
             return
 
-    duplicate = " duplicate=true" if result.is_duplicate else ""
-    print(
-        "processed "
-        f"spot_code={result.response.spot_code} "
-        f"status={result.response.status} "
-        f"led_commands={result.led_commands_sent}"
-        f"{duplicate}"
+    logger.info(
+        "processed spot_code=%s status=%s led_commands=%s duplicate=%s",
+        result.response.spot_code,
+        result.response.status,
+        result.led_commands_sent,
+        result.is_duplicate,
     )
 
 
@@ -103,6 +120,10 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    logging.basicConfig(
+        level=logging.DEBUG if settings.debug else logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
     asyncio.run(main_async())
 
 
@@ -126,9 +147,11 @@ async def main_async() -> None:
                         auto_create_floor_sector=args.auto_create_floor_sector,
                     )
         except OSError as exc:
-            print(
-                f"MQTT connection unavailable: {args.host}:{args.port} "
-                f"error={exc}. retrying in 5s"
+            logger.warning(
+                "mqtt_connection_unavailable host=%s port=%s error=%s retrying_in=5s",
+                args.host,
+                args.port,
+                exc,
             )
             await asyncio.sleep(5)
 
