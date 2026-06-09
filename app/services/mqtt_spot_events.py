@@ -117,6 +117,64 @@ def build_spot_event_request_from_mqtt(
     )
 
 
+def _camera_zone_fields(
+    request: SpotEventRequest,
+    parsed,
+    sector_code: str,
+) -> tuple[str, str]:
+    code = (
+        request.camera_zone_code
+        or camera_zone_code_from_spot_code(request.spot_code)
+        or sector_code
+    )
+    number = parsed.camera_zone_number if parsed is not None else code
+    return code, (number or code)
+
+
+def _build_camera_zone(sector_id: int, code: str, number: str) -> ParkingZone:
+    return ParkingZone(
+        sector_id=sector_id,
+        title=f"Camera Zone {code}",
+        code=code,
+        zone_number=number,
+        sort_order=sort_order_from_code(code),
+        is_active=True,
+    )
+
+
+def _build_spot(zone_id: int, spot_code: str) -> ParkingSpot:
+    return ParkingSpot(
+        zone_id=zone_id,
+        code=spot_code,
+        status=SpotStatus.UNKNOWN.value,
+        sort_order=sort_order_from_code(spot_code),
+        is_active=True,
+    )
+
+
+def _reconcile_camera_zone(zone: ParkingZone, sector_id: int) -> bool:
+    if zone.sector_id != sector_id:
+        logger.warning(
+            "camera_zone_reassigned code=%s from_sector_id=%s to_sector_id=%s",
+            zone.code,
+            zone.sector_id,
+            sector_id,
+        )
+        zone.sector_id = sector_id
+        return True
+    if not zone.is_active:
+        zone.is_active = True
+        return True
+    return False
+
+
+def _reconcile_spot(spot: ParkingSpot) -> bool:
+    if not spot.is_active:
+        spot.is_active = True
+        return True
+    return False
+
+
 def ensure_mqtt_parking_config(
     db: Session,
     request: SpotEventRequest,
@@ -159,32 +217,14 @@ def _ensure_mqtt_parking_config(
     else:
         sector = _get_configured_sector(db, sector_code)
 
-    camera_zone_code = request.camera_zone_code or camera_zone_code_from_spot_code(request.spot_code) or sector_code
-    camera_zone_number = parsed.camera_zone_number if parsed is not None else camera_zone_code
+    camera_zone_code, camera_zone_number = _camera_zone_fields(request, parsed, sector_code)
     zone = db.scalar(select(ParkingZone).where(ParkingZone.code == camera_zone_code))
     if zone is None:
-        zone = ParkingZone(
-            sector_id=sector.id,
-            title=f"Camera Zone {camera_zone_code}",
-            code=camera_zone_code,
-            zone_number=camera_zone_number or camera_zone_code,
-            sort_order=sort_order_from_code(camera_zone_code),
-            is_active=True,
-        )
+        zone = _build_camera_zone(sector.id, camera_zone_code, camera_zone_number)
         db.add(zone)
         db.flush()
         created = True
-    elif zone.sector_id != sector.id:
-        logger.warning(
-            "camera_zone_reassigned code=%s from_sector_id=%s to_sector_id=%s",
-            camera_zone_code,
-            zone.sector_id,
-            sector.id,
-        )
-        zone.sector_id = sector.id
-        created = True
-    elif not zone.is_active:
-        zone.is_active = True
+    elif _reconcile_camera_zone(zone, sector.id):
         created = True
 
     spot = db.scalar(
@@ -194,17 +234,9 @@ def _ensure_mqtt_parking_config(
         )
     )
     if spot is None:
-        spot = ParkingSpot(
-            zone_id=zone.id,
-            code=request.spot_code,
-            status=SpotStatus.UNKNOWN.value,
-            sort_order=sort_order_from_code(request.spot_code),
-            is_active=True,
-        )
-        db.add(spot)
+        db.add(_build_spot(zone.id, request.spot_code))
         created = True
-    elif not spot.is_active:
-        spot.is_active = True
+    elif _reconcile_spot(spot):
         created = True
 
     if created:
@@ -255,32 +287,14 @@ async def _ensure_mqtt_parking_config_async(
     else:
         sector = await _get_configured_sector_async(db, sector_code)
 
-    camera_zone_code = request.camera_zone_code or camera_zone_code_from_spot_code(request.spot_code) or sector_code
-    camera_zone_number = parsed.camera_zone_number if parsed is not None else camera_zone_code
+    camera_zone_code, camera_zone_number = _camera_zone_fields(request, parsed, sector_code)
     zone = await db.scalar(select(ParkingZone).where(ParkingZone.code == camera_zone_code))
     if zone is None:
-        zone = ParkingZone(
-            sector_id=sector.id,
-            title=f"Camera Zone {camera_zone_code}",
-            code=camera_zone_code,
-            zone_number=camera_zone_number or camera_zone_code,
-            sort_order=sort_order_from_code(camera_zone_code),
-            is_active=True,
-        )
+        zone = _build_camera_zone(sector.id, camera_zone_code, camera_zone_number)
         db.add(zone)
         await db.flush()
         created = True
-    elif zone.sector_id != sector.id:
-        logger.warning(
-            "camera_zone_reassigned code=%s from_sector_id=%s to_sector_id=%s",
-            camera_zone_code,
-            zone.sector_id,
-            sector.id,
-        )
-        zone.sector_id = sector.id
-        created = True
-    elif not zone.is_active:
-        zone.is_active = True
+    elif _reconcile_camera_zone(zone, sector.id):
         created = True
 
     spot = await db.scalar(
@@ -290,17 +304,9 @@ async def _ensure_mqtt_parking_config_async(
         )
     )
     if spot is None:
-        spot = ParkingSpot(
-            zone_id=zone.id,
-            code=request.spot_code,
-            status=SpotStatus.UNKNOWN.value,
-            sort_order=sort_order_from_code(request.spot_code),
-            is_active=True,
-        )
-        db.add(spot)
+        db.add(_build_spot(zone.id, request.spot_code))
         created = True
-    elif not spot.is_active:
-        spot.is_active = True
+    elif _reconcile_spot(spot):
         created = True
 
     if created:
