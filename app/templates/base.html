@@ -2,5 +2,11 @@
 
 {% block head_css %}
     {{ super() }}
+    <script>document.documentElement.setAttribute('data-bs-theme', 'dark');</script>
     <link rel="stylesheet" href="{{ url_for(__name__ ~ ':statics', path='css/pgs-admin.css') }}">
+{% endblock %}
+
+{% block script %}
+    {{ super() }}
+    <script src="{{ url_for(__name__ ~ ':statics', path='js/pgs-admin.js') }}"></script>
 {% endblock %}

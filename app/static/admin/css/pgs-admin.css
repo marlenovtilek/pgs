@@ -1,31 +1,50 @@
-:root {
-  --pgs-bg: #f4f7fb;
-  --pgs-surface: #ffffff;
-  --pgs-surface-soft: #f8fafc;
-  --pgs-border: #dbe3ef;
-  --pgs-border-strong: #c8d3e3;
-  --pgs-text: #122033;
-  --pgs-muted: #64748b;
-  --pgs-accent: #0f766e;
-  --pgs-accent-strong: #0d5f59;
-  --pgs-blue: #2563eb;
-  --pgs-danger: #dc2626;
-  --pgs-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+/* PGS admin theme — dark palette tuned to match the LED simulator.
+   Works on top of Tabler's data-bs-theme="dark" (set in base.html / pgs-admin.js):
+   Tabler handles base component theming, this file refines the palette, the
+   sidebar, and adds colored status badges. */
+:root,
+[data-bs-theme="dark"] {
+  --pgs-bg: #0b1220;
+  --pgs-bg-2: #0e1729;
+  --pgs-surface: #111c30;
+  --pgs-surface-soft: #0f1828;
+  --pgs-border: #20304a;
+  --pgs-border-strong: #2b3e5c;
+  --pgs-text: #e6edf7;
+  --pgs-muted: #93a3b8;
+  --pgs-accent: #2dd4bf;
+  --pgs-accent-strong: #14b8a6;
+  --pgs-blue: #60a5fa;
+  --pgs-danger: #f87171;
+  --pgs-shadow: 0 14px 34px rgba(2, 6, 20, 0.55);
+
+  /* Align Tabler/Bootstrap surfaces with the PGS palette. */
+  --tblr-body-bg: var(--pgs-bg);
+  --tblr-body-color: var(--pgs-text);
+  --tblr-border-color: var(--pgs-border);
+  --tblr-card-bg: var(--pgs-surface);
+  --tblr-primary: var(--pgs-accent);
+  --bs-primary: var(--pgs-accent);
 }
 
 body {
-  background: var(--pgs-bg);
+  background:
+    radial-gradient(1200px 600px at 85% -10%, rgba(45, 212, 191, 0.08), transparent 60%),
+    radial-gradient(900px 500px at -5% 110%, rgba(96, 165, 250, 0.07), transparent 55%),
+    var(--pgs-bg);
   color: var(--pgs-text);
 }
 
-.page {
-  background: var(--pgs-bg);
+.page,
+.page-wrapper {
+  background: transparent;
 }
 
+/* ---- Sidebar ---------------------------------------------------------- */
 .navbar-vertical {
-  background: #111827;
-  border-right: 0;
-  box-shadow: 8px 0 26px rgba(15, 23, 42, 0.18);
+  background: linear-gradient(180deg, #0c1424 0%, #0a101d 100%);
+  border-right: 1px solid var(--pgs-border);
+  box-shadow: 10px 0 30px rgba(2, 6, 20, 0.45);
 }
 
 .navbar-brand {
@@ -33,33 +52,34 @@ body {
 }
 
 .navbar-brand h3 {
-  color: #f8fafc;
+  color: #f1f5f9;
   font-size: 1.05rem;
   font-weight: 750;
   letter-spacing: 0;
 }
 
 .navbar-vertical .nav-link {
-  border-radius: 7px;
-  color: #cbd5e1;
+  border-radius: 8px;
+  color: #c0ccdd;
   margin: 2px 10px;
   min-height: 2.35rem;
 }
 
 .navbar-vertical .nav-link:hover,
 .navbar-vertical .nav-link.active {
-  background: rgba(45, 212, 191, 0.14);
+  background: rgba(45, 212, 191, 0.16);
   color: #ffffff;
 }
 
+.navbar-vertical .nav-link.active {
+  box-shadow: inset 3px 0 0 var(--pgs-accent);
+}
+
 .navbar-vertical .nav-link-icon {
-  color: #99f6e4;
+  color: #5eead4;
 }
 
-.page-wrapper {
-  background: var(--pgs-bg);
-}
-
+/* ---- Headings & breadcrumbs ------------------------------------------ */
 .page-header {
   margin-bottom: 1rem;
 }
@@ -75,14 +95,21 @@ body {
   color: var(--pgs-blue);
 }
 
+.text-muted,
+.page-pretitle {
+  color: var(--pgs-muted) !important;
+}
+
+/* ---- Cards ------------------------------------------------------------ */
 .card {
+  background: var(--pgs-surface);
   border: 1px solid var(--pgs-border);
-  border-radius: 8px;
+  border-radius: 12px;
   box-shadow: var(--pgs-shadow);
 }
 
 .card-header {
-  background: var(--pgs-surface);
+  background: transparent;
   border-bottom: 1px solid var(--pgs-border);
   min-height: 3.5rem;
 }
@@ -92,54 +119,73 @@ body {
   font-weight: 720;
 }
 
+/* ---- Tables ----------------------------------------------------------- */
 .table {
-  --tblr-table-bg: var(--pgs-surface);
+  --tblr-table-bg: transparent;
+  --tblr-table-color: var(--pgs-text);
   color: var(--pgs-text);
 }
 
 .table thead th {
   background: var(--pgs-surface-soft);
   border-bottom: 1px solid var(--pgs-border-strong);
-  color: #475569;
+  color: #9fb2cb;
   font-size: 0.73rem;
   font-weight: 760;
-  letter-spacing: 0;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
 }
 
 .table tbody td {
   border-color: var(--pgs-border);
+  color: var(--pgs-text);
   vertical-align: middle;
 }
 
 .table tbody tr:hover td {
-  background: #f1f5f9;
+  background: rgba(45, 212, 191, 0.06);
 }
 
+.table a {
+  color: var(--pgs-blue);
+}
+
+/* ---- Forms ------------------------------------------------------------ */
 .form-control,
 .form-select,
 .select2-container--default .select2-selection--single,
 .select2-container--default .select2-selection--multiple {
+  background: var(--pgs-surface-soft);
   border-color: var(--pgs-border-strong);
-  border-radius: 7px;
+  border-radius: 8px;
   color: var(--pgs-text);
+}
+
+.form-control::placeholder {
+  color: #5f7a99;
 }
 
 .form-control:focus,
 .form-select:focus,
 .select2-container--default.select2-container--focus .select2-selection--multiple,
 .select2-container--default.select2-container--focus .select2-selection--single {
+  background: var(--pgs-surface-soft);
   border-color: var(--pgs-accent);
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14);
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.18);
+  color: var(--pgs-text);
 }
 
 .form-label {
-  color: #334155;
+  color: #b9c6da;
   font-weight: 680;
 }
 
 .select2-container {
   min-width: min(36rem, 100%) !important;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+  color: var(--pgs-text);
 }
 
 .select2-container--default .select2-selection--multiple {
@@ -148,10 +194,10 @@ body {
 }
 
 .select2-container--default .select2-selection--multiple .select2-selection__choice {
-  background: #e0f2fe;
-  border: 1px solid #bae6fd;
+  background: rgba(45, 212, 191, 0.16);
+  border: 1px solid rgba(45, 212, 191, 0.35);
   border-radius: 6px;
-  color: #0f172a;
+  color: #d7fbf3;
   font-weight: 650;
   margin-top: 0.2rem;
   padding: 0.22rem 0.5rem 0.22rem 1.25rem;
@@ -166,49 +212,97 @@ body {
 
 .select2-container--default .select2-results__option--highlighted[aria-selected] {
   background: var(--pgs-accent);
-  color: #ffffff;
+  color: #04201d;
 }
 
 .select2-dropdown {
+  background: var(--pgs-surface);
   border-color: var(--pgs-border-strong);
-  border-radius: 7px;
-  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.16);
+  border-radius: 8px;
+  box-shadow: 0 18px 36px rgba(2, 6, 20, 0.55);
 }
 
+/* ---- Buttons ---------------------------------------------------------- */
 .btn {
-  border-radius: 7px;
+  border-radius: 8px;
   font-weight: 680;
 }
 
 .btn-primary {
   background: var(--pgs-accent);
   border-color: var(--pgs-accent);
+  color: #04201d;
 }
 
 .btn-primary:hover,
 .btn-primary:focus {
   background: var(--pgs-accent-strong);
   border-color: var(--pgs-accent-strong);
+  color: #04201d;
 }
 
 .btn-danger {
   background: var(--pgs-danger);
   border-color: var(--pgs-danger);
+  color: #2a0606;
 }
 
 .dropdown-menu {
+  background: var(--pgs-surface);
   border-color: var(--pgs-border);
-  border-radius: 8px;
-  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.14);
+  border-radius: 10px;
+  box-shadow: 0 18px 36px rgba(2, 6, 20, 0.55);
+}
+
+/* ---- Status badges (injected by pgs-admin.js) ------------------------- */
+.pgs-badge {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 0.74rem;
+  font-weight: 720;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
+  padding: 0.18rem 0.6rem;
+  white-space: nowrap;
+}
+
+.pgs-badge--free,
+.pgs-badge--sent {
+  background: rgba(34, 197, 94, 0.16);
+  border-color: rgba(34, 197, 94, 0.4);
+  color: #6ee7a8;
+}
+
+.pgs-badge--occupied,
+.pgs-badge--failed {
+  background: rgba(248, 113, 113, 0.16);
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #fca5a5;
+}
+
+.pgs-badge--pending {
+  background: rgba(251, 191, 36, 0.16);
+  border-color: rgba(251, 191, 36, 0.4);
+  color: #fcd34d;
+}
+
+.pgs-badge--offline,
+.pgs-badge--unknown {
+  background: rgba(148, 163, 184, 0.16);
+  border-color: rgba(148, 163, 184, 0.38);
+  color: #cbd5e1;
 }
 
 .badge,
 .avatar {
-  border-radius: 7px;
+  border-radius: 8px;
 }
 
+/* ---- Login screen ----------------------------------------------------- */
 .container-tight .card {
-  border-radius: 8px;
+  background: var(--pgs-surface);
+  border-radius: 12px;
 }
 
 .container-tight .card-title {

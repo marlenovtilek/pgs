@@ -820,6 +820,11 @@ ADMIN_PASSWORD=admin
 LED_ADAPTER=mock
 LED_HTTP_PATH=/api/v1/led/commands
 LED_HTTP_TIMEOUT=3.0
+
+# Список спец/выключенных мест (новый формат), через запятую. Пусто - дефолт из кода.
+# DISABLED_SPOT_CODES=B1-B-01-1,B1-B-01-2
+# Порт Prometheus-метрик MQTT consumer.
+METRICS_PORT=9101
 ```
 
 ### 2. Проверить Docker network
@@ -1008,8 +1013,45 @@ docker compose run --rm -v ./tests:/app/tests pgs-api python -m pytest
 Последняя проверка проекта:
 
 ```text
-70 passed
+76 passed
 ```
+
+### Нагрузочные и concurrency тесты
+
+В `scripts/` лежат self-cleaning тесты на реальной PostgreSQL (создают и удаляют свои данные):
+
+```bash
+docker compose run --rm -v ./scripts:/app/scripts pgs-api python -m scripts.load_test
+docker compose run --rm -v ./scripts:/app/scripts pgs-api python -m scripts.concurrency_test
+```
+
+- `load_test.py` - последовательный ingest на ~1800 мест (проверка NFR по пропускной способности);
+- `concurrency_test.py` - проверка гонок auto-create (same-spot / same-zone / dedup). Возвращает
+  ненулевой exit-code при провале, поэтому подходит как gate в CI.
+
+## Метрики и мониторинг
+
+PGS отдаёт метрики в формате Prometheus.
+
+| Процесс | Где метрики |
+| --- | --- |
+| `pgs-api` | `GET http://localhost:8010/metrics` |
+| `pgs-mqtt-consumer` | отдельный HTTP-порт `METRICS_PORT` (по умолчанию `9101`) |
+
+Экспортируемые счётчики:
+
+| Метрика | Метки | Что считает |
+| --- | --- | --- |
+| `pgs_spot_events_total` | `result` | входящие spot-события по исходу (`processed`, `invalid`, `ignored`, `duplicate`, `not_found`, `ambiguous`, `auto_create_failed`, `auto_create_conflict`) |
+| `pgs_led_commands_total` | `status` | попытки отправки LED-команд (`sent`, `failed`) |
+
+Порт метрик consumer задаётся в `.env`:
+
+```env
+METRICS_PORT=9101
+```
+
+Метрики можно собирать Prometheus-scrape и строить дашборды/алерты в Grafana.
 
 ## Миграции
 
@@ -1075,8 +1117,11 @@ app/api/led_simulator.py             - HTML/JS LED simulator
 - fake HTTP LED server для end-to-end проверки без железа;
 - entry display summary;
 - динамический auto-create `floor -> sector -> camera zone -> spot` из MQTT;
+- устойчивость auto-create к гонкам (rollback + retry на `IntegrityError`);
 - отдельный admin bootstrap;
 - demo parking bootstrap через compose profile;
+- Prometheus-метрики (`/metrics` у API, порт `9101` у consumer);
+- нагрузочный и concurrency тесты в `scripts/`;
 - тесты.
 
 Не готово:
@@ -1091,13 +1136,13 @@ app/api/led_simulator.py             - HTML/JS LED simulator
 
 ```text
 1. Прочитать README.md.
-2. Если локально есть CONTEXT.md, прочитать его как актуальный handoff.
-3. Если нужен быстрый запуск, открыть QUICKSTART.md.
-4. Не возвращать старую модель row/zone_code: текущая модель floor -> sector -> camera zone -> spot.
-5. Не подключать UNV SDK внутрь PGS без API/protocol для LED-табло.
+2. Если локально есть CLAUDE.md, прочитать его как актуальный рабочий handoff.
+3. Не возвращать старую модель row/zone_code: текущая модель floor -> sector -> camera zone -> spot.
+4. Не подключать UNV SDK внутрь PGS без API/protocol для LED-табло.
 ```
 
-`CONTEXT.md` и `QUICKSTART.md` могут быть локальными файлами и не обязаны попадать в GitHub.
+`CLAUDE.md` - локальный рабочий handoff (в `.gitignore`), он заменил прежние `CONTEXT.md` и
+`QUICKSTART.md`. README.md - публичная правда о проекте.
 
 ## Будущая интеграция с реальным LED
 
