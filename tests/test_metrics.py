@@ -13,7 +13,8 @@ def test_metrics_endpoint_exposes_counters():
     from app.main import app
 
     client = TestClient(app)
-    response = client.get("/metrics")
+    # No trailing-slash redirect: /metrics must serve directly (Prometheus scrapes /metrics).
+    response = client.get("/metrics", follow_redirects=False)
 
     assert response.status_code == 200
     body = response.text
