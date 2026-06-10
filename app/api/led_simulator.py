@@ -409,6 +409,64 @@ LED_SIMULATOR_HTML = """<!doctype html>
 
     .spot.offline .spot-status { color: var(--muted); }
 
+    .intro {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+      max-width: 90ch;
+    }
+
+    .hint {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+      max-width: 88ch;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 18px;
+      margin: 0 0 16px;
+      padding: 10px 14px;
+      border: 1px solid var(--panel-edge);
+      border-radius: 8px;
+      background: #15171b;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #dce3ea;
+      font-size: 12px;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+
+    .swatch {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      border: 1px solid #30343a;
+      flex: 0 0 auto;
+    }
+
+    .swatch.free { background: rgba(54, 255, 113, 0.22); border-color: rgba(54, 255, 113, 0.6); }
+    .swatch.occupied { background: rgba(255, 59, 59, 0.22); border-color: rgba(255, 59, 59, 0.6); }
+    .swatch.unknown { background: rgba(255, 207, 51, 0.22); border-color: rgba(255, 207, 51, 0.6); }
+    .swatch.offline { background: #0b0c0e; opacity: 0.55; }
+
+    .swatch-badge {
+      flex: 0 0 auto;
+      color: var(--blue);
+      font-size: 15px;
+      line-height: 1;
+      text-shadow: 0 0 10px currentColor;
+    }
+
     @media (max-width: 560px) {
       .topbar {
         align-items: flex-start;
@@ -450,25 +508,51 @@ LED_SIMULATOR_HTML = """<!doctype html>
     <div class="status" id="updated">Ожидание данных</div>
   </header>
   <main class="wrap">
+    <p class="intro">
+      Предпросмотр того, что прямо сейчас показывают LED-табло парковки.
+      Это копия реальных табло на экране — данные берутся из PGS и обновляются автоматически каждые 2 секунды.
+    </p>
+
     <section class="section">
       <h2 class="section-title">
-        <span>Въездное LED-табло</span>
+        <span>Въездное табло</span>
         <span class="status" id="entryCount">0 строк</span>
       </h2>
+      <p class="hint">
+        Большое табло на въезде. Показывает, сколько свободных мест в каждом секторе и сколько свободно на парковке в целом —
+        чтобы водитель ещё на въезде понимал, есть ли смысл заезжать и куда.
+      </p>
       <div id="entryDisplay" aria-live="polite"></div>
     </section>
+
     <section class="section">
       <h2 class="section-title">
         <span>Навигационные табло</span>
         <span class="status" id="displayCount">0 табло</span>
       </h2>
+      <p class="hint">
+        Маленькие табло на развилках внутри парковки. Стрелка — в какую сторону ехать,
+        крупное число — сколько там свободных мест, «P» — обозначение парковки.
+        Если свободных мест не осталось, число становится красным.
+      </p>
       <div class="grid" id="displayGrid" aria-live="polite"></div>
     </section>
+
     <section class="section">
       <h2 class="section-title">
         <span>Карта парковки</span>
         <span class="status" id="spotCount">0 мест</span>
       </h2>
+      <p class="hint">
+        Текущее состояние каждого места, сгруппированное по этажам и секторам. Цвет показывает статус места:
+      </p>
+      <div class="legend">
+        <span class="legend-item"><span class="swatch free"></span>свободно</span>
+        <span class="legend-item"><span class="swatch occupied"></span>занято</span>
+        <span class="legend-item"><span class="swatch unknown"></span>неизвестно (ещё не было данных)</span>
+        <span class="legend-item"><span class="swatch offline"></span>офлайн (нет связи с камерой)</span>
+        <span class="legend-item"><span class="swatch-badge">&#9855;</span>место для инвалидов</span>
+      </div>
       <div class="level-grid" id="mapGrid" aria-live="polite"></div>
     </section>
   </main>
