@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
+from app.core.metrics import LED_COMMANDS
 from app.domain.ports.display import DisplayCommandPort
 from app.models.guidance_display import GuidanceDisplay
 from app.models.led_command_log import LedCommandLog
@@ -108,6 +109,7 @@ async def _send_display_message(
         log.status = "FAILED"
         log.error_message = "LED device is inactive."
         db.commit()
+        LED_COMMANDS.labels(status="failed").inc()
         return False
 
     try:
@@ -122,11 +124,13 @@ async def _send_display_message(
         log.status = "FAILED"
         log.error_message = str(exc)
         db.commit()
+        LED_COMMANDS.labels(status="failed").inc()
         return False
 
     log.status = "SENT"
     log.sent_at = datetime.now(timezone.utc)
     db.commit()
+    LED_COMMANDS.labels(status="sent").inc()
     return True
 
 
@@ -151,6 +155,7 @@ async def _send_display_message_async(
         log.status = "FAILED"
         log.error_message = "LED device is inactive."
         await db.commit()
+        LED_COMMANDS.labels(status="failed").inc()
         return False
 
     try:
@@ -165,11 +170,13 @@ async def _send_display_message_async(
         log.status = "FAILED"
         log.error_message = str(exc)
         await db.commit()
+        LED_COMMANDS.labels(status="failed").inc()
         return False
 
     log.status = "SENT"
     log.sent_at = datetime.now(timezone.utc)
     await db.commit()
+    LED_COMMANDS.labels(status="sent").inc()
     return True
 
 

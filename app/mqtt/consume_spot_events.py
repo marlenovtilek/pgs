@@ -2,9 +2,11 @@ import argparse
 import asyncio
 import logging
 
+from prometheus_client import start_http_server
 from sqlalchemy.exc import IntegrityError
 
 from app.adapters.event_bus.mqtt import AsyncMqttSubscriber, MqttMessage, default_client_id
+from app.core.metrics import SPOT_EVENTS
 from app.adapters.led.factory import get_led_display_adapter
 from app.contracts.mqtt_topics import SPOT_STATUS_TOPIC
 from app.core.async_database import AsyncSessionLocal
@@ -31,6 +33,7 @@ async def handle_message(
             message.topic,
             message.raw_payload,
         )
+        SPOT_EVENTS.labels(result="ignored").inc()
         return
 
     try:
@@ -40,6 +43,7 @@ async def handle_message(
         )
     except ValueError as exc:
         logger.warning("invalid topic=%s error=%s", message.topic, exc)
+        SPOT_EVENTS.labels(result="invalid").inc()
         return
 
     async with AsyncSessionLocal() as db:
@@ -54,12 +58,14 @@ async def handle_message(
                 logger.warning(
                     "auto_create_failed spot_code=%s error=%s", request.spot_code, exc
                 )
+                SPOT_EVENTS.labels(result="auto_create_failed").inc()
                 return
             except IntegrityError as exc:
                 await db.rollback()
                 logger.warning(
                     "auto_create_conflict spot_code=%s error=%s", request.spot_code, exc
                 )
+                SPOT_EVENTS.labels(result="auto_create_conflict").inc()
                 return
             if created:
                 logger.info(
@@ -81,6 +87,7 @@ async def handle_message(
                 request.sector_code,
                 request.status.value,
             )
+            SPOT_EVENTS.labels(result="not_found").inc()
             return
         except AmbiguousSpotCodeError as exc:
             logger.warning(
@@ -88,6 +95,7 @@ async def handle_message(
                 exc.spot_code,
                 request.sector_code,
             )
+            SPOT_EVENTS.labels(result="ambiguous").inc()
             return
 
     logger.info(
@@ -97,6 +105,7 @@ async def handle_message(
         result.led_commands_sent,
         result.is_duplicate,
     )
+    SPOT_EVENTS.labels(result="duplicate" if result.is_duplicate else "processed").inc()
 
 
 def parse_args() -> argparse.Namespace:
@@ -124,6 +133,8 @@ def main() -> None:
         level=logging.DEBUG if settings.debug else logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
+    start_http_server(settings.metrics_port)
+    logger.info("metrics_server_started port=%s", settings.metrics_port)
     asyncio.run(main_async())
 
 

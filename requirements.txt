@@ -9,3 +9,4 @@ pytest
 paho-mqtt
 starlette-admin[i18n]
 httpx
+prometheus-client

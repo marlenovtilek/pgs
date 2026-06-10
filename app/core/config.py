@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     # Comma-separated spot codes shown as disabled/special places.
     # Empty/None falls back to the built-in default set in app/services/spots.py.
     disabled_spot_codes: str | None = None
+    # Port where the MQTT consumer exposes Prometheus metrics (/metrics on the API).
+    metrics_port: int = 9101
 
     model_config = SettingsConfigDict(
         env_file=".env",

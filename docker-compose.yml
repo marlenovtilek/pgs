@@ -51,6 +51,9 @@ services:
     container_name: pgs-mqtt-consumer
     working_dir: /app
     command: python -m app.mqtt.consume_spot_events --auto-create --auto-create-floor-sector
+    # Prometheus metrics for the consumer process (MQTT stream + LED commands).
+    ports:
+      - "9101:9101"
     volumes:
       - ./app:/app/app
       - ./migrations:/app/migrations
