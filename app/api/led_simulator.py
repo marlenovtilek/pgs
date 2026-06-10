@@ -107,19 +107,19 @@ LED_SIMULATOR_HTML = """<!doctype html>
     .plate .sector { color: var(--blue); font-weight: 700; }
 
     /* ---- Entry board (big outdoor sign) ---- */
-    .entry-board .screen { padding: 22px 26px; }
+    .entry-board .screen { padding: 32px 36px; }
     .board-caption {
-      color: var(--amber); font-size: clamp(13px, 1.6vw, 18px); letter-spacing: 2px;
-      margin-bottom: 16px; opacity: 0.92;
+      color: var(--amber); font-size: clamp(14px, 1.7vw, 20px); letter-spacing: 2px;
+      margin-bottom: 18px; opacity: 0.92;
     }
-    .board-rows { display: grid; gap: 12px; }
+    .board-rows { display: grid; gap: 14px; }
     .board-row {
       display: flex; align-items: baseline; justify-content: space-between; gap: 24px;
-      border-bottom: 1px dashed rgba(255, 180, 58, 0.14); padding-bottom: 10px;
+      border-bottom: 1px dashed rgba(255, 180, 58, 0.14); padding-bottom: 12px;
     }
     .board-row:last-child { border-bottom: 0; }
-    .row-code { color: var(--amber); font-size: clamp(30px, 5vw, 60px); line-height: 1; }
-    .row-count { color: var(--green); font-size: clamp(34px, 6vw, 70px); line-height: 1; }
+    .row-code { color: var(--amber); font-size: clamp(36px, 6vw, 78px); line-height: 1; }
+    .row-count { color: var(--green); font-size: clamp(44px, 7.5vw, 96px); line-height: 1; }
     .board-row.zero .row-count { color: var(--red); }
     .board-total {
       margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -128,29 +128,33 @@ LED_SIMULATOR_HTML = """<!doctype html>
     .board-total b { color: var(--green); font-size: 1.5em; }
 
     /* ---- Navigation signs (small parking displays) ---- */
-    .signs { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
+    /* Navigation signs are physically small: fixed compact width, not full-row. */
+    .signs { display: flex; flex-wrap: wrap; gap: 18px; }
+    .sign { width: 360px; max-width: 100%; }
+    .sign .casing { padding: 12px; border-radius: 12px; }
+    .sign .plate { margin-bottom: 9px; padding-bottom: 8px; font-size: 11px; }
     .sign .screen {
-      display: grid; grid-template-columns: auto minmax(70px, 1fr) auto; align-items: center;
-      gap: 14px; padding: 22px 18px; min-height: 150px;
+      display: grid; grid-template-columns: auto minmax(42px, 1fr) auto; align-items: center;
+      gap: 10px; padding: 14px 12px; min-height: 104px;
     }
     .sign-foot {
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
-      margin-top: 12px; color: var(--muted); font-size: 13px;
+      margin-top: 10px; color: var(--muted); font-size: 12px;
     }
     .sign-arrow {
-      min-width: 70px; text-align: center; color: var(--green);
-      font-size: clamp(58px, 9vw, 104px); line-height: 0.85;
+      min-width: 40px; text-align: center; color: var(--green);
+      font-size: clamp(34px, 4.4vw, 52px); line-height: 0.85;
     }
     .sign-count {
       min-width: 0; text-align: center; color: var(--green);
-      font-size: clamp(58px, 9vw, 104px); line-height: 0.85;
+      font-size: clamp(38px, 4.8vw, 58px); line-height: 0.85;
     }
     .sign-p {
-      min-width: 58px; text-align: center; color: var(--blue);
-      font-size: clamp(40px, 6vw, 72px); line-height: 0.9;
+      min-width: 38px; text-align: center; color: var(--blue);
+      font-size: clamp(24px, 3.2vw, 38px); line-height: 0.9;
       border: 1px solid rgba(105, 167, 255, 0.5);
-      box-shadow: inset 0 0 18px rgba(105, 167, 255, 0.18);
-      padding: 10px 8px; border-radius: 4px;
+      box-shadow: inset 0 0 16px rgba(105, 167, 255, 0.18);
+      padding: 7px 6px; border-radius: 4px;
     }
     .sign.full .sign-arrow,
     .sign.full .sign-count { color: var(--red); }
@@ -215,7 +219,7 @@ LED_SIMULATOR_HTML = """<!doctype html>
       .topbar { align-items: flex-start; flex-direction: column; }
       .status { white-space: normal; }
       .wrap { padding: 14px; }
-      .signs { grid-template-columns: 1fr; }
+      .sign { width: 100%; }
       .level-grid { grid-template-columns: 1fr; }
     }
   </style>
