@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.utils import parse_comma_set
 from app.domain.value_objects.spot_status import SpotStatus
 from app.models.parking_floor import ParkingFloor
 from app.models.parking_sector import ParkingSector
@@ -22,7 +23,7 @@ _DEFAULT_DISABLED_SPOT_CODES = frozenset(
 def _parse_disabled_spot_codes(raw: str | None) -> frozenset[str]:
     if not raw:
         return _DEFAULT_DISABLED_SPOT_CODES
-    return frozenset(code.strip() for code in raw.split(",") if code.strip())
+    return parse_comma_set(raw)
 
 
 DISABLED_SPOT_CODES = _parse_disabled_spot_codes(settings.disabled_spot_codes)

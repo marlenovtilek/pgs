@@ -1,8 +1,9 @@
-from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+
+from app.core.utils import now_utc
 
 
 class FakeLedCommandRequest(BaseModel):
@@ -27,7 +28,7 @@ async def health() -> dict[str, str]:
 
 @app.post("/api/v1/led/commands")
 async def receive_led_command(request: FakeLedCommandRequest) -> dict[str, Any]:
-    received_at = datetime.now(timezone.utc).isoformat()
+    received_at = now_utc().isoformat()
     command = request.model_dump()
     received_commands.append(
         {

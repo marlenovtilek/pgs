@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import select
@@ -7,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from app.core.metrics import LED_COMMANDS
+from app.core.utils import now_utc
 from app.domain.ports.display import DisplayCommandPort
 from app.models.guidance_display import GuidanceDisplay
 from app.models.led_command_log import LedCommandLog
@@ -128,7 +128,7 @@ async def _send_display_message(
         return False
 
     log.status = "SENT"
-    log.sent_at = datetime.now(timezone.utc)
+    log.sent_at = now_utc()
     db.commit()
     LED_COMMANDS.labels(status="sent").inc()
     return True
@@ -174,7 +174,7 @@ async def _send_display_message_async(
         return False
 
     log.status = "SENT"
-    log.sent_at = datetime.now(timezone.utc)
+    log.sent_at = now_utc()
     await db.commit()
     LED_COMMANDS.labels(status="sent").inc()
     return True

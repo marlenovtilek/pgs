@@ -6,10 +6,12 @@ import os
 import socket
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 import paho.mqtt.client as mqtt
+
+from app.core.utils import now_utc
 
 
 @dataclass(slots=True)
@@ -97,7 +99,7 @@ class MqttSubscriber:
                 topic=message.topic,
                 payload=payload,
                 raw_payload=raw_payload,
-                received_at=datetime.now(timezone.utc),
+                received_at=now_utc(),
             )
         )
 
